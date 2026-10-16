@@ -90,8 +90,7 @@ Esta Política de Privacidade é regida pelas leis brasileiras, incluindo:
 
 Para questões sobre esta Política de Privacidade ou sobre o tratamento de seus dados pessoais:
 
-**E-mail**: support.epet@gmail.com  
-**Endereço**: [Seu endereço comercial]
+**E-mail**: support.epet@gmail.com
 
 **Encarregado de Proteção de Dados (DPO)**: support.epet@gmail.com
 
