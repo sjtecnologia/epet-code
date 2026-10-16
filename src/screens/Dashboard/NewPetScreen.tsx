@@ -5,6 +5,9 @@
  * data de nascimento, foto, endereço, tutor e vacinas iniciais),
  * fazer upload da foto para o Firebase Storage, salvar o pet no
  * Firestore (coleção 'pets') e registrar na coleção 4YouPet.
+ *
+ * A UI de formulário é compartilhada com EditPetScreen via
+ * src/components/petForm.
  */
 import React, { useState, useEffect } from 'react';
 import {
@@ -14,17 +17,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Modal,
-  ActivityIndicator,
 } from 'react-native';
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as ImagePicker from 'expo-image-picker';            // seletor de imagem da galeria / câmera
-import DateTimePicker from '@react-native-community/datetimepicker'; // seletor nativo de data
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firestore, firebaseAuth, storage } from '../../lib/firebase';
@@ -33,7 +32,6 @@ import { Address } from '../../types/database.types';         // tipo do endere�
 import { colors } from '../../constants/colors';              // paleta de cores
 import { syncPublicPet } from '../../lib/publicPet';
 import {
-  speciesOptions,
   generatePetId,
   COMMON_VACCINES,
   emptyVaccineForm,
@@ -43,8 +41,20 @@ import {
   parseDateBR,
   formatDateForDB,
   buildFullAddress,
-  calculateAgeFromDate,
 } from '../../lib/petForm';
+import {
+  PetFormHeader,
+  PhotoPicker,
+  usePhotoPicker,
+  SpeciesSelector,
+  CustomSpeciesField,
+  FormInput,
+  BirthDateField,
+  AddressFields,
+  AddressModal,
+  SubmitButton,
+  SuccessModal,
+} from '../../components/petForm';
 
 type Props = {
   navigation: NativeStackNavigationProp<any>;
@@ -59,7 +69,6 @@ export default function NewPetScreen({ navigation }: Props) {
   const [createdPetName, setCreatedPetName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null); // URI local da foto escolhida
   const [birthDate, setBirthDate] = useState<Date | null>(null); // data de nascimento do pet
-  const [showDatePicker, setShowDatePicker] = useState(false);   // controla o DateTimePicker
 
   // --- Endereço ------------------------------------------------------------------
   const [street, setStreet] = useState('');
@@ -95,6 +104,9 @@ export default function NewPetScreen({ navigation }: Props) {
     notes: '',
   });
 
+  // Seleção de foto (galeria/câmera) compartilhada
+  const { showPhotoOptions } = usePhotoPicker((uri) => setPhotoUri(uri));
+
   // Carrega os endereços salvos ao montar o componente
   useEffect(() => {
     fetchSavedAddresses();
@@ -128,29 +140,6 @@ export default function NewPetScreen({ navigation }: Props) {
     setNumber(address.number);
     setComplement(address.complement || '');
     setShowAddressModal(false);
-  };
-
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-      if (selectedDate && event.type !== 'dismissed') {
-        setBirthDate(selectedDate);
-      }
-    } else {
-      // iOS - apenas atualiza a data, não fecha o modal
-      if (selectedDate) {
-        setBirthDate(selectedDate);
-      }
-    }
-  };
-
-  /** Formata uma data para exibição no padrão brasileiro DD/MM/AAAA */
-  const formatDateDisplay = (date: Date) => {
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
   };
 
   /** Limpa os campos de endereço e a seleção ativa */
@@ -250,54 +239,6 @@ export default function NewPetScreen({ navigation }: Props) {
     } finally {
       setValidatingSpecies(false);
     }
-  };
-
-  /** Abre a galeria de fotos para escolher a foto do pet */
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
-    }
-  };
-
-  /** Abre a câmera para tirar uma foto do pet */
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
-    }
-  };
-
-  /** Exibe um Alert com as opções de adicionar foto (câmera ou galeria) */
-  const showPhotoOptions = () => {
-    Alert.alert('Adicionar Foto', 'Como você deseja adicionar a foto?', [
-      { text: 'Câmera', onPress: takePhoto },
-      { text: 'Galeria', onPress: pickImage },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
   };
 
   /**
@@ -467,326 +408,112 @@ export default function NewPetScreen({ navigation }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Novo Pet</Text>
-        <View style={styles.backButton} />
-      </View>
+      <PetFormHeader title="Novo Pet" onBack={() => navigation.goBack()} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Foto do Pet */}
-        <View style={styles.photoSection}>
-          <TouchableOpacity style={styles.photoContainer} onPress={showPhotoOptions}>
-            {photoUri ? (
-              <Image source={{ uri: photoUri }} style={styles.photo} />
-            ) : (
-              <View style={styles.photoPlaceholder}>
-                <Ionicons name="camera" size={40} color={colors.gray500} />
-                <Text style={styles.photoText}>Adicionar foto</Text>
-              </View>
-            )}
-            <View style={styles.addPhotoButton}>
-              <Ionicons name="add" size={20} color="#fff" />
-            </View>
-          </TouchableOpacity>
-        </View>
+        <PhotoPicker photoUri={photoUri} onPress={showPhotoOptions} />
 
         {/* Seleção de Espécie */}
         <Text style={styles.sectionTitle}>Espécie</Text>
-        <View style={styles.speciesContainer}>
-          {speciesOptions.map((option) => (
-            <TouchableOpacity
-              key={option.id}
-              style={[
-                styles.speciesOption,
-                formData.species === option.id && styles.speciesOptionActive,
-              ]}
-              onPress={() => setFormData({ ...formData, species: option.id })}
-            >
-              <View style={[
-                styles.speciesIconContainer,
-                formData.species === option.id && styles.speciesIconContainerActive
-              ]}>
-                <Ionicons
-                  name={option.icon}
-                  size={24}
-                  color={formData.species === option.id ? '#fff' : colors.primary}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.speciesLabel,
-                  formData.species === option.id && styles.speciesLabelActive,
-                ]}
-              >
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <SpeciesSelector
+          value={formData.species}
+          onChange={(species) => setFormData({ ...formData, species })}
+        />
 
         {/* Campo de espécie customizada */}
         {formData.species === 'other' && (
-          <View style={styles.customSpeciesContainer}>
-            <View style={styles.inputContainer}>
-              <Ionicons name="create-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Qual é a espécie? (ex: Coelho, Hamster, Tartaruga)"
-                placeholderTextColor={colors.gray500}
-                value={customSpecies}
-                onChangeText={(text) => {
-                  setCustomSpecies(text);
-                  validateCustomSpeciesDebounced(text);
-                }}
-                autoCapitalize="words"
-              />
-              {validatingSpecies && (
-                <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: 8 }} />
-              )}
-              {!validatingSpecies && speciesValidationResult === 'valid' && (
-                <Ionicons name="checkmark-circle" size={24} color="#10B981" style={{ marginLeft: 8 }} />
-              )}
-              {!validatingSpecies && speciesValidationResult === 'invalid' && (
-                <Ionicons name="close-circle" size={24} color="#EF4444" style={{ marginLeft: 8 }} />
-              )}
-            </View>
-          </View>
+          <CustomSpeciesField
+            value={customSpecies}
+            onChangeText={(text) => {
+              setCustomSpecies(text);
+              validateCustomSpeciesDebounced(text);
+            }}
+            validating={validatingSpecies}
+            validationResult={speciesValidationResult}
+          />
         )}
 
         {/* Dados do Pet */}
         <Text style={styles.sectionTitle}>Dados do Pet</Text>
         <View style={styles.inputGroup}>
-          <View style={styles.inputContainer}>
-            <Ionicons name="paw-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Nome do pet"
-              placeholderTextColor={colors.gray500}
-              value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="heart-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Raça"
-              placeholderTextColor={colors.gray500}
-              value={formData.breed}
-              onChangeText={(text) => setFormData({ ...formData, breed: text })}
-            />
-          </View>
-
-          {/* DatePicker */}
-          <TouchableOpacity
-            style={styles.inputContainer}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Ionicons name="calendar-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.input, styles.dateText, !birthDate && styles.placeholderText, { paddingVertical: 8 }]}>
-                {birthDate ? formatDateDisplay(birthDate) : 'Data de nascimento'}
-              </Text>
-              {birthDate && (
-                <Text style={styles.ageText}>
-                  {calculateAgeFromDate(birthDate)}
-                </Text>
-              )}
-            </View>
-            <Ionicons name="chevron-down" size={20} color={colors.gray500} />
-          </TouchableOpacity>
-        </View>
-
-        {/* DatePicker Modal para iOS */}
-        {Platform.OS === 'ios' && (
-          <Modal
-            visible={showDatePicker}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setShowDatePicker(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.datePickerModal}>
-                <View style={styles.datePickerHeader}>
-                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                    <Text style={styles.datePickerCancel}>Cancelar</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.datePickerTitle}>Data de Nascimento</Text>
-                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                    <Text style={styles.datePickerDone}>OK</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  value={birthDate || new Date()}
-                  mode="date"
-                  display="spinner"
-                  onChange={onDateChange}
-                  maximumDate={new Date()}
-                  locale="pt-BR"
-                />
-              </View>
-            </View>
-          </Modal>
-        )}
-
-        {/* DatePicker para Android */}
-        {Platform.OS === 'android' && showDatePicker && (
-          <DateTimePicker
-            value={birthDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={onDateChange}
-            maximumDate={new Date()}
+          <FormInput
+            icon="paw-outline"
+            placeholder="Nome do pet"
+            value={formData.name}
+            onChangeText={(text) => setFormData({ ...formData, name: text })}
           />
-        )}
+          <FormInput
+            icon="heart-outline"
+            placeholder="Raça"
+            value={formData.breed}
+            onChangeText={(text) => setFormData({ ...formData, breed: text })}
+          />
+          <BirthDateField value={birthDate} onChange={setBirthDate} />
+        </View>
 
         {/* Dados do Tutor */}
         <Text style={styles.sectionTitle}>Dados do Tutor</Text>
         <View style={styles.inputGroup}>
-          <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Nome do tutor"
-              placeholderTextColor={colors.gray500}
-              value={formData.ownerName}
-              onChangeText={(text) => setFormData({ ...formData, ownerName: text })}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="call-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Telefone"
-              placeholderTextColor={colors.gray500}
-              value={formData.ownerPhone}
-              onChangeText={(text) => setFormData({ ...formData, ownerPhone: text })}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="E-mail"
-              placeholderTextColor={colors.gray500}
-              value={formData.ownerEmail}
-              onChangeText={(text) => setFormData({ ...formData, ownerEmail: text })}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
+          <FormInput
+            icon="person-outline"
+            placeholder="Nome do tutor"
+            value={formData.ownerName}
+            onChangeText={(text) => setFormData({ ...formData, ownerName: text })}
+          />
+          <FormInput
+            icon="call-outline"
+            placeholder="Telefone"
+            value={formData.ownerPhone}
+            onChangeText={(text) => setFormData({ ...formData, ownerPhone: text })}
+            keyboardType="phone-pad"
+          />
+          <FormInput
+            icon="mail-outline"
+            placeholder="E-mail"
+            value={formData.ownerEmail}
+            onChangeText={(text) => setFormData({ ...formData, ownerEmail: text })}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
         </View>
 
         {/* Endereço - Seletor de endereços salvos */}
-        <View style={styles.addressHeader}>
-          <Text style={styles.sectionTitle}>Endereço</Text>
-          {savedAddresses.length > 0 && (
-            <TouchableOpacity
-              style={styles.selectAddressButton}
-              onPress={() => setShowAddressModal(true)}
-            >
-              <Ionicons name="location" size={18} color={colors.primary} />
-              <Text style={styles.selectAddressText}>
-                {selectedAddressId ? 'Trocar endereço' : 'Selecionar endereço'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {selectedAddressId && (
-          <View style={styles.selectedAddressBanner}>
-            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-            <Text style={styles.selectedAddressText}>
-              Usando: {savedAddresses.find(a => a.id === selectedAddressId)?.label}
-            </Text>
-            <TouchableOpacity onPress={handleClearAddress}>
-              <Ionicons name="close-circle" size={20} color="#EF4444" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.inputGroup}>
-          <View style={styles.inputContainer}>
-            <Ionicons name="location-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Rua / Logradouro"
-              placeholderTextColor={colors.gray500}
-              value={street}
-              onChangeText={setStreet}
-              editable={!selectedAddressId}
-            />
-          </View>
-
-          {street.length > 0 && (
-            <View style={styles.rowInputs}>
-              <View style={[styles.inputContainer, { flex: 1 }]}>
-                <Ionicons name="home-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Número"
-                  placeholderTextColor={colors.gray500}
-                  value={number}
-                  onChangeText={setNumber}
-                  keyboardType="numeric"
-                  editable={!selectedAddressId}
-                />
-              </View>
-              
-              <View style={[styles.inputContainer, { flex: 1.5 }]}>
-                <Ionicons name="business-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Complemento"
-                  placeholderTextColor={colors.gray500}
-                  value={complement}
-                  onChangeText={setComplement}
-                  editable={!selectedAddressId}
-                />
-              </View>
-            </View>
-          )}
-        </View>
+        <AddressFields
+          savedAddresses={savedAddresses}
+          selectedAddressId={selectedAddressId}
+          onOpenModal={() => setShowAddressModal(true)}
+          onClearAddress={handleClearAddress}
+          street={street}
+          number={number}
+          complement={complement}
+          onChangeStreet={setStreet}
+          onChangeNumber={setNumber}
+          onChangeComplement={setComplement}
+        />
 
         {/* Observações */}
         <Text style={styles.sectionTitle}>Observações</Text>
-        <View style={[styles.inputContainer, styles.textAreaContainer]}>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Informações adicionais..."
-            placeholderTextColor={colors.gray500}
-            value={formData.notes}
-            onChangeText={(text) => setFormData({ ...formData, notes: text })}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </View>
+        <FormInput
+          multiline
+          placeholder="Informações adicionais..."
+          value={formData.notes}
+          onChangeText={(text) => setFormData({ ...formData, notes: text })}
+        />
 
         {/* Peso Inicial */}
         <View style={styles.vaccineHeader}>
           <Text style={styles.sectionTitle}>Peso Atual</Text>
           <Text style={styles.sectionSubtitle}>Opcional</Text>
         </View>
-        <View style={styles.inputContainer}>
-          <Ionicons name="scale-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Ex: 4.5"
-            placeholderTextColor={colors.gray500}
-            value={initialPeso}
-            onChangeText={setInitialPeso}
-            keyboardType="decimal-pad"
-          />
-          <Text style={styles.inputSuffix}>kg</Text>
-        </View>
+        <FormInput
+          icon="scale-outline"
+          placeholder="Ex: 4.5"
+          value={initialPeso}
+          onChangeText={setInitialPeso}
+          keyboardType="decimal-pad"
+          suffix="kg"
+        />
 
         {/* Vacinas Iniciais */}
         <View style={styles.vaccineHeader}>
@@ -837,111 +564,29 @@ export default function NewPetScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         {/* Botão de Cadastrar */}
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+        <SubmitButton
           onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <Text style={styles.submitButtonText}>Cadastrando...</Text>
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle" size={22} color="#fff" />
-              <Text style={styles.submitButtonText}>Cadastrar Pet</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          loading={loading}
+          label="Cadastrar Pet"
+          loadingLabel="Cadastrando..."
+        />
 
         <View style={styles.bottomPadding} />
       </ScrollView>
 
       {/* Modal de Seleção de Endereços */}
-      <Modal 
-        visible={showAddressModal} 
-        transparent 
-        animationType="slide"
-        onRequestClose={() => setShowAddressModal(false)}
-      >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowAddressModal(false)}
-        >
-          <TouchableOpacity 
-            activeOpacity={1} 
-            onPress={(e) => e.stopPropagation()}
-            style={{ flex: 1, justifyContent: 'flex-end' }}
-          >
-            <View style={styles.addressModalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Selecionar Endereço</Text>
-                <TouchableOpacity onPress={() => setShowAddressModal(false)}>
-                  <Ionicons name="close" size={24} color={colors.gray600} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView 
-                style={styles.addressList} 
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled={true}
-              >
-              {savedAddresses.map((address) => (
-                <TouchableOpacity
-                  key={address.id}
-                  style={[
-                    styles.addressItem,
-                    selectedAddressId === address.id && styles.addressItemSelected,
-                  ]}
-                  onPress={() => handleSelectAddress(address)}
-                >
-                  <View style={styles.addressItemHeader}>
-                    <View style={styles.addressLabelContainer}>
-                      <Ionicons
-                        name="location"
-                        size={20}
-                        color={selectedAddressId === address.id ? colors.primary : colors.gray600}
-                      />
-                      <Text
-                        style={[
-                          styles.addressLabel,
-                          selectedAddressId === address.id && styles.addressLabelSelected,
-                        ]}
-                      >
-                        {address.label}
-                      </Text>
-                      {address.is_default && (
-                        <View style={styles.defaultBadge}>
-                          <Text style={styles.defaultBadgeText}>Padrão</Text>
-                        </View>
-                      )}
-                    </View>
-                    {selectedAddressId === address.id && (
-                      <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-                    )}
-                  </View>
-                  <Text style={styles.addressItemText}>
-                    {address.street}, {address.number}
-                    {address.complement && ` - ${address.complement}`}
-                  </Text>
-                  <Text style={styles.addressItemCep}>CEP: {address.cep}</Text>
-                </TouchableOpacity>
-              ))}
-
-              <TouchableOpacity
-                style={styles.manualAddressOption}
-                onPress={() => {
-                  handleClearAddress();
-                  setShowAddressModal(false);
-                }}
-              >
-                <Ionicons name="create-outline" size={20} color={colors.primary} />
-                <Text style={styles.manualAddressText}>Digitar endereço manualmente</Text>
-              </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      <AddressModal
+        visible={showAddressModal}
+        onClose={() => setShowAddressModal(false)}
+        addresses={savedAddresses}
+        selectedAddressId={selectedAddressId}
+        onSelect={handleSelectAddress}
+        onManual={() => {
+          handleClearAddress();
+          setShowAddressModal(false);
+        }}
+        manualOptionText="Digitar endereço manualmente"
+      />
 
       {/* Modal de Adicionar Vacina */}
       <Modal
@@ -1114,39 +759,20 @@ export default function NewPetScreen({ navigation }: Props) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal
+      <SuccessModal
         visible={showSuccessModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
+        title="Pet cadastrado!"
+        description={
+          createdPetName
+            ? `${createdPetName} foi cadastrado com sucesso.`
+            : 'Seu pet foi cadastrado com sucesso.'
+        }
+        buttonText="Ir para meus pets"
+        onClose={() => {
           setShowSuccessModal(false);
           navigation.goBack();
         }}
-      >
-        <View style={styles.successOverlay}>
-          <View style={styles.successModalCard}>
-            <View style={styles.successIconContainer}>
-              <Ionicons name="checkmark-circle" size={64} color="#10B981" />
-            </View>
-            <Text style={styles.successTitle}>Pet cadastrado!</Text>
-            <Text style={styles.successDescription}>
-              {createdPetName
-                ? `${createdPetName} foi cadastrado com sucesso.`
-                : 'Seu pet foi cadastrado com sucesso.'}
-            </Text>
-
-            <TouchableOpacity
-              style={styles.successButton}
-              onPress={() => {
-                setShowSuccessModal(false);
-                navigation.goBack();
-              }}
-            >
-              <Text style={styles.successButtonText}>Ir para meus pets</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1156,75 +782,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backgroundLight,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 24,
-    backgroundColor: colors.primary,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-  },
   content: {
     flex: 1,
     padding: 24,
-  },
-  photoSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  photoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    overflow: 'visible',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  photo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  photoPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.gray200,
-    borderRadius: 60,
-  },
-  photoText: {
-    fontSize: 12,
-    color: colors.gray500,
-    marginTop: 4,
-  },
-  addPhotoButton: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
   },
   sectionTitle: {
     fontSize: 16,
@@ -1233,238 +793,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 8,
   },
-  speciesContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  speciesOption: {
-    flex: 1,
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: colors.gray300,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  speciesOptionActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  speciesLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.gray600,
-    textAlign: 'center',
-  },
-  speciesLabelActive: {
-    color: '#fff',
-  },
-  speciesIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.tertiary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  speciesIconContainerActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  customSpeciesContainer: {
-    marginBottom: 16,
-  },
-  inputGroup: {
-    gap: 12,
-    marginBottom: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.gray300,
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  inputSuffix: {
-    fontSize: 14,
-    color: colors.gray500,
-    paddingRight: 4,
-  },
   input: {
     flex: 1,
     paddingVertical: 16,
     fontSize: 15,
     color: colors.textPrimary,
   },
-  dateText: {
-    color: colors.textPrimary,
-  },
-  placeholderText: {
-    color: colors.gray500,
-  },
-  ageText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '600',
-    marginTop: -8,
-  },
-  addressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  selectAddressButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.tertiary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  selectAddressText: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  selectedAddressBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  selectedAddressText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#15803D',
-    fontWeight: '500',
-  },
-  useAddressButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  useAddressText: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  rowInputs: {
-    flexDirection: 'row',
+  inputGroup: {
     gap: 12,
+    marginBottom: 8,
   },
-  textAreaContainer: {
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-    marginBottom: 24,
-  },
-  textArea: {
-    height: 100,
-    paddingVertical: 0,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  datePickerModal: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingBottom: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
-  },
-  datePickerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  datePickerCancel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.gray600,
-  },
-  datePickerDone: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  bottomPadding: {
-    height: 40,
-  },
-  addressModalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '70%',
-    paddingTop: 24,
-    paddingBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
+  inputIcon: {
+    marginRight: 12,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1477,77 +817,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  addressList: {
-    paddingHorizontal: 24,
-    maxHeight: 400,
-  },
-  addressItem: {
-    backgroundColor: colors.backgroundLight,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  addressItemSelected: {
-    backgroundColor: colors.tertiary,
-    borderColor: colors.primary,
-  },
-  addressItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  addressLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  addressLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  addressLabelSelected: {
-    color: colors.primary,
-  },
-  defaultBadge: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  defaultBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  addressItemText: {
-    fontSize: 14,
-    color: colors.gray700,
-    marginBottom: 4,
-  },
-  addressItemCep: {
-    fontSize: 12,
-    color: colors.gray500,
-  },
-  manualAddressOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray300,
-    marginTop: 8,
-  },
-  manualAddressText: {
-    fontSize: 15,
-    color: colors.primary,
-    fontWeight: '600',
   },
   vaccineHeader: {
     flexDirection: 'row',
@@ -1732,53 +1001,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
-  successOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  successModalCard: {
-    width: '100%',
-    maxWidth: 360,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  successIconContainer: {
-    marginBottom: 12,
-  },
-  successTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  successDescription: {
-    fontSize: 15,
-    color: colors.gray700,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  successButton: {
-    width: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  successButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
+  bottomPadding: {
+    height: 40,
   },
 });
