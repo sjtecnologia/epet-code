@@ -2,10 +2,10 @@
  * LoginScreen — tela de login do app e-Pet.
  *
  * Funcionalidades:
- *  - Login com e-mail e senha via Supabase Auth
+ *  - Login com e-mail e senha via Firebase Auth
  *  - Fallback automático: se o usuário só tem conta no 4YouPet (Firebase),
  *    a conta e-Pet é criada automaticamente no login (lógica no AuthContext)
- *  - Modal de recuperação de senha via Supabase (envio de e-mail de reset)
+ *  - Modal de redefinição de senha via Firebase Auth (envio de e-mail de reset)
  *  - Botão para mostrar/ocultar senha
  */
 import React, { useState } from 'react';

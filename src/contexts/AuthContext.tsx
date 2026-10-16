@@ -76,12 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     phone: string,
   ) => {
     try {
-      console.log('[Auth] Iniciando cadastro para:', email);
       const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-      console.log('[Auth] Usuário criado com sucesso, UID:', credential.user.uid);
-      
       await createFirestoreUserDoc(credential.user.uid, name, email, phone);
-      console.log('[Auth] Documento Firestore criado com sucesso');
+      console.log('[Auth] Conta criada e documento Firestore criado');
       return { error: null };
     } catch (err) {
       const e = err as FirebaseLikeError;

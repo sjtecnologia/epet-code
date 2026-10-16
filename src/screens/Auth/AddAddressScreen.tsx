@@ -6,7 +6,7 @@
  *
  * Funcionalidades:
  *  - Busca automática de endereço por CEP via ViaCEP API
- *  - Salva o endereço na tabela 'addresses' do Supabase
+ *  - Salva o endereço na subcoleção 'users/{uid}/addresses' do Firestore
  *  - Botão "Pular" que salva um flag no AsyncStorage para não exibir novamente
  *
  * Props:
@@ -82,7 +82,7 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
   };
 
   /**
-   * handleSave — valida os campos obrigatórios e insere o endereço na tabela 'addresses'.
+   * handleSave — valida os campos e insere o endereço em 'users/{uid}/addresses'.
    * O primeiro endereço é automaticamente marcado como padrão (is_default = true).
    */
   const handleSave = async () => {

@@ -186,7 +186,7 @@ export default function HelpScreen({ navigation }: Props) {
           <TouchableOpacity
             style={styles.contactItem}
             onPress={() =>
-              Linking.openURL('mailto:suporte@e-pet.com.br?subject=Suporte e-Pet').catch(() =>
+              Linking.openURL('mailto:support.epet@gmail.com?subject=Suporte e-Pet').catch(() =>
                 Alert.alert('Erro', 'Não foi possível abrir o aplicativo de e-mail.')
               )
             }
@@ -196,27 +196,7 @@ export default function HelpScreen({ navigation }: Props) {
             </View>
             <View style={styles.contactContent}>
               <Text style={styles.contactTitle}>E-mail</Text>
-              <Text style={styles.contactValue}>suporte@e-pet.com.br</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.contactItem}
-            onPress={() =>
-              Linking.openURL(
-                'https://wa.me/5511999999999?text=Olá%2C%20preciso%20de%20ajuda%20com%20o%20e-Pet!'
-              ).catch(() =>
-                Alert.alert('Erro', 'Não foi possível abrir o WhatsApp.')
-              )
-            }
-          >
-            <View style={styles.contactIcon}>
-              <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
-            </View>
-            <View style={styles.contactContent}>
-              <Text style={styles.contactTitle}>WhatsApp</Text>
-              <Text style={styles.contactValue}>(11) 99999-9999</Text>
+              <Text style={styles.contactValue}>support.epet@gmail.com</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
           </TouchableOpacity>

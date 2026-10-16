@@ -8,7 +8,7 @@
  *  - Senha com no mínimo 6 caracteres
  *
  * Após o cadastro:
- *  - Se o Supabase exigir confirmação de e-mail: exibe alerta e volta para o Login
+ *  - Se o Firebase exigir confirmação de e-mail: exibe alerta e volta para o Login
  *  - Se já criar sessão: o AuthProvider detecta e navega automaticamente
  */
 import React, { useState } from 'react';

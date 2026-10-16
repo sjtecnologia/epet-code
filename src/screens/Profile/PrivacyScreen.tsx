@@ -83,7 +83,7 @@ export default function PrivacyScreen({ navigation }: Props) {
           style: 'destructive',
           onPress: () =>
             Linking.openURL(
-              'mailto:suporte@e-pet.com.br?subject=Solicita%C3%A7%C3%A3o%20de%20Exclus%C3%A3o%20de%20Dados&body=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20a%20exclus%C3%A3o%20permanente%20da%20minha%20conta%20e%20de%20todos%20os%20meus%20dados%20no%20aplicativo%20e-Pet.'
+              'mailto:support.epet@gmail.com?subject=Solicita%C3%A7%C3%A3o%20de%20Exclus%C3%A3o%20de%20Dados&body=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20a%20exclus%C3%A3o%20permanente%20da%20minha%20conta%20e%20de%20todos%20os%20meus%20dados%20no%20aplicativo%20e-Pet.'
             ).catch(() =>
               Alert.alert('Erro', 'Não foi possível abrir o aplicativo de e-mail.')
             ),
@@ -102,7 +102,7 @@ export default function PrivacyScreen({ navigation }: Props) {
           text: 'Solicitar Download',
           onPress: () =>
             Linking.openURL(
-              'mailto:suporte@e-pet.com.br?subject=Solicita%C3%A7%C3%A3o%20de%20Download%20de%20Dados&body=Ol%C3%A1%2C%20gostaria%20de%20receber%20uma%20c%C3%B3pia%20de%20todos%20os%20meus%20dados%20cadastrados%20no%20aplicativo%20e-Pet.'
+              'mailto:support.epet@gmail.com?subject=Solicita%C3%A7%C3%A3o%20de%20Download%20de%20Dados&body=Ol%C3%A1%2C%20gostaria%20de%20receber%20uma%20c%C3%B3pia%20de%20todos%20os%20meus%20dados%20cadastrados%20no%20aplicativo%20e-Pet.'
             ).catch(() =>
               Alert.alert('Erro', 'Não foi possível abrir o aplicativo de e-mail.')
             ),

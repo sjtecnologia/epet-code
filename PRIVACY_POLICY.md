@@ -40,7 +40,7 @@ Suas informações pessoais **só são compartilhadas** quando:
 
 ## 5. Armazenamento e Segurança
 
-- Utilizamos o Supabase como provedor de banco de dados seguro
+- Utilizamos o Google Firebase (Firestore) como provedor de banco de dados seguro
 - Todas as conexões são criptografadas (HTTPS/SSL)
 - Fotos são armazenadas de forma segura com acesso controlado
 - Implementamos medidas de segurança física, eletrônica e administrativa
@@ -54,7 +54,7 @@ Você tem o direito de:
 - **Exportar** seus dados em formato legível
 - **Revogar** permissões concedidas ao aplicativo
 
-Para exercer esses direitos, entre em contato através do e-mail: privacy@epet.com
+Para exercer esses direitos, entre em contato através do e-mail: support.epet@gmail.com
 
 ## 7. Retenção de Dados
 
@@ -90,11 +90,10 @@ Esta Política de Privacidade é regida pelas leis brasileiras, incluindo:
 
 Para questões sobre esta Política de Privacidade ou sobre o tratamento de seus dados pessoais:
 
-**E-mail**: privacy@epet.com  
-**Telefone**: +55 (11) 99999-9999  
+**E-mail**: support.epet@gmail.com  
 **Endereço**: [Seu endereço comercial]
 
-**Encarregado de Proteção de Dados (DPO)**: dpo@epet.com
+**Encarregado de Proteção de Dados (DPO)**: support.epet@gmail.com
 
 ---
 
