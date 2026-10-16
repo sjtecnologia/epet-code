@@ -19,7 +19,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Alert } from '../../lib/alert';
-import { LineChart } from 'react-native-chart-kit';
+import { LineChart } from 'react-native-gifted-charts';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -38,6 +38,10 @@ import { lastPetKey } from './DashboardScreen';
 import { useAuth } from '../../contexts/AuthContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+
+/** Largura útil do gráfico dentro do card (descontando paddings e o eixo Y). */
+const CHART_Y_AXIS_WIDTH = 44;
+const CHART_WIDTH = SCREEN_WIDTH - 20 * 2 - 16 * 2 - CHART_Y_AXIS_WIDTH;
 
 /** Converte DD/MM/AAAA → timestamp para ordenação cronológica */
 const parseDateBR = (dateStr: string): number => {
@@ -454,11 +458,13 @@ export default function PetCardScreen({ navigation, route }: Props) {
             // da ordem de inserção — resolve o bug de datas fora de sequência
             const sorted = [...pesagens].sort((a, b) => parseDateBR(a.data) - parseDateBR(b.data));
             const dados = sorted.slice(-6);
-            const valores = dados.map(p => p.peso);
-            const safeValores = valores.length === 1 ? [valores[0], valores[0]] : valores;
-            const safeLabels = dados.length === 1
-              ? [dados[0].data.slice(0, 5), '']
-              : dados.map(p => p.data.slice(0, 5));
+            // Um único ponto não desenha linha: duplica o valor para formar o par
+            const chartData = dados.length === 1
+              ? [
+                  { value: dados[0].peso, label: dados[0].data.slice(0, 5) },
+                  { value: dados[0].peso, label: '' },
+                ]
+              : dados.map((p) => ({ value: p.peso, label: p.data.slice(0, 5) }));
             const ultimoPeso = sorted[sorted.length - 1];
             return (
               <>
@@ -469,31 +475,22 @@ export default function PetCardScreen({ navigation, route }: Props) {
                     <Text style={styles.weightCardCurrent}>{ultimoPeso.peso.toFixed(1)} kg</Text>
                   </View>
                   <LineChart
-                    data={{ labels: safeLabels, datasets: [{ data: safeValores }] }}
-                    width={SCREEN_WIDTH - 40}
+                    data={chartData}
+                    width={CHART_WIDTH}
                     height={170}
-                    yAxisSuffix=" kg"
-                    chartConfig={{
-                      backgroundColor: '#EFEFEF',
-                      backgroundGradientFrom: '#EFEFEF',
-                      backgroundGradientTo: '#EFEFEF',
-                      decimalPlaces: 1,
-                      color: () => colors.primary,
-                      labelColor: () => colors.gray600,
-                      propsForDots: {
-                        r: '6',
-                        strokeWidth: '2',
-                        stroke: colors.primaryDark,
-                        fill: colors.primary,
-                      },
-                      propsForBackgroundLines: { stroke: '#fff', strokeWidth: 1 },
-                    }}
-                    bezier={safeValores.length > 2}
-                    withInnerLines
-                    withOuterLines={false}
-                    withVerticalLines={false}
-                    fromZero={false}
-                    style={styles.weightChart}
+                    yAxisLabelWidth={CHART_Y_AXIS_WIDTH}
+                    yAxisLabelSuffix=" kg"
+                    color={colors.primary}
+                    thickness={2.5}
+                    dataPointsColor={colors.primary}
+                    dataPointsRadius={5}
+                    curved={chartData.length > 2}
+                    noOfSections={4}
+                    rulesColor={colors.gray200}
+                    yAxisColor="transparent"
+                    xAxisColor={colors.gray300}
+                    yAxisTextStyle={{ color: colors.gray600, fontSize: 11 }}
+                    xAxisLabelTextStyle={{ color: colors.gray500, fontSize: 10 }}
                   />
                 </View>
               </>
@@ -805,9 +802,6 @@ const styles = StyleSheet.create({
   bottomPadding: {
     height: 40,
   },
-  weightCard: {
-    display: 'none', // não mais usado — gráfico está dentro de actionsCard
-  },
   chartInCard: {
     paddingHorizontal: 16,
     paddingTop: 14,
@@ -828,9 +822,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: colors.primary,
-  },
-  weightChart: {
-    borderRadius: 12,
-    marginLeft: -16,
   },
 });
