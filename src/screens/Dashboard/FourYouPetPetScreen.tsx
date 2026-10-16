@@ -12,7 +12,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import * as uuid from 'uuid';
+import uuid from 'react-native-uuid';
 import { doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { DashboardStackParamList } from '../../types/navigation.types';

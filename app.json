@@ -6,13 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "description": "Identificação digital para pets - Sistema completo de carteira digital com QR Code para identificação rápida e segura do seu animal de estimação.",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#22B14C"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -43,7 +37,6 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-secure-store",
       [
         "expo-camera",
         {
@@ -60,7 +53,15 @@
       "expo-font",
       "@react-native-community/datetimepicker",
       "expo-sharing",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#22B14C"
+        }
+      ]
     ],
     "owner": "e-pet",
     "extra": {
