@@ -19,6 +19,9 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/** Formato mínimo dos erros lançados pelo Firebase Auth/Firestore */
+export type FirebaseLikeError = { code?: string; message?: string };
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,8 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           hasCompletedFirstPurchase: false,
         });
       }
-    } catch (e: any) {
-      console.error('[Firestore] Falha ao criar documento do usuario:', e.code, e.message);
+    } catch (e) {
+      const err = e as FirebaseLikeError;
+      console.error('[Firestore] Falha ao criar documento do usuario:', err.code, err.message);
       throw e; // Propaga o erro para que signUp possa tratar
     }
   };
@@ -60,8 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithEmailAndPassword(firebaseAuth, email, password);
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err) {
+      return { error: err as Error };
     }
   };
 
@@ -79,9 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await createFirestoreUserDoc(credential.user.uid, name, email, phone);
       console.log('[Auth] Documento Firestore criado com sucesso');
       return { error: null };
-    } catch (err: any) {
-      console.error('[Auth] Erro durante cadastro:', err.code, err.message);
-      return { error: err };
+    } catch (err) {
+      const e = err as FirebaseLikeError;
+      console.error('[Auth] Erro durante cadastro:', e.code, e.message);
+      return { error: err as Error };
     }
   };
 

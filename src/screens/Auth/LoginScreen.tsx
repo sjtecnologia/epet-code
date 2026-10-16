@@ -27,11 +27,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { firebaseAuth } from '../../lib/firebase';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, FirebaseLikeError } from '../../contexts/AuthContext';
+import { RootStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<RootStackParamList>;
 };
 
 export default function LoginScreen({ navigation }: Props) {
@@ -69,7 +70,7 @@ export default function LoginScreen({ navigation }: Props) {
     setLoading(false);
 
     if (error) {
-      const code = (error as any).code;
+      const code = (error as FirebaseLikeError).code;
       const msg = code === 'auth/network-request-failed'
         ? 'Sem conexão com a internet. Tente novamente.'
         : 'E-mail ou senha incorretos.';
@@ -96,7 +97,7 @@ export default function LoginScreen({ navigation }: Props) {
         'E-mail enviado!',
         'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.'
       );
-    } catch (error: any) {
+    } catch {
       Alert.alert('Erro', 'Não foi possível enviar o e-mail. Verifique o endereço informado.');
     } finally {
       setResetLoading(false);

@@ -55,10 +55,23 @@ export function getPetIdFromQrPayload(data: string): string {
   return payload;
 }
 
+/** Ficha pública do pet exposta em `publicPets/{petId}` */
+type PublicPet = {
+  id: string;
+  pet_id?: string;
+  name?: string;
+  species?: string;
+  breed?: string | null;
+  photo_url?: string | null;
+  owner_name?: string;
+  owner_phone?: string | null;
+  owner_email?: string | null;
+};
+
 export default function SearchScreen() {
   const [searchId, setSearchId] = useState('');          // ID digitado pelo usuário
   const [loading, setLoading] = useState(false);          // indica busca em andamento
-  const [petData, setPetData] = useState<any>(null);      // dados do pet encontrado
+  const [petData, setPetData] = useState<PublicPet | null>(null); // dados do pet encontrado
   const [notFound, setNotFound] = useState(false);        // true quando nenhum pet foi encontrado
   const [showScanner, setShowScanner] = useState(false);  // exibe o modal com a câmera
   const [scanned, setScanned] = useState(false);          // evita múltiplas leituras do QR Code
@@ -137,7 +150,7 @@ export default function SearchScreen() {
   };
 
   /** Retorna o rótulo da espécie em português */
-  const getSpeciesLabel = (species: string) => {
+  const getSpeciesLabel = (species?: string) => {
     switch (species) {
       case 'dog': return 'Cachorro';
       case 'cat': return 'Gato';
@@ -147,7 +160,7 @@ export default function SearchScreen() {
   };
 
   /** Retorna o nome do ícone Ionicons para a espécie */
-  const getSpeciesIcon = (species: string): keyof typeof Ionicons.glyphMap => {
+  const getSpeciesIcon = (species?: string): keyof typeof Ionicons.glyphMap => {
     switch (species) {
       case 'dog': return 'paw';
       case 'cat': return 'paw';
@@ -161,16 +174,6 @@ export default function SearchScreen() {
     if (!dateString) return 'Não informado';
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR');
-  };
-
-  const formatFirestoreDate = (timestamp: any): string => {
-    if (!timestamp) return 'Não informado';
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return date.toLocaleDateString('pt-BR');
-    } catch {
-      return 'Não informado';
-    }
   };
 
   const calculateAge = (dateString: string | null): string => {
@@ -200,22 +203,6 @@ export default function SearchScreen() {
       return months === 1 ? '1 mês' : `${months} meses`;
     } else {
       return days === 1 ? '1 dia' : `${days} dias`;
-    }
-  };
-
-  const calculateAgeFromTimestamp = (timestamp: any): string => {
-    if (!timestamp) return '';
-    try {
-      const birth = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      const today = new Date();
-      let years = today.getFullYear() - birth.getFullYear();
-      let months = today.getMonth() - birth.getMonth();
-      if (months < 0) { years--; months += 12; }
-      if (years > 0) return `${years} ano${years > 1 ? 's' : ''}`;
-      if (months > 0) return `${months} mês${months > 1 ? 'es' : ''}`;
-      return 'Filhote';
-    } catch {
-      return '';
     }
   };
 

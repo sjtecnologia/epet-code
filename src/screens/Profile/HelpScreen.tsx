@@ -20,6 +20,7 @@ import {
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ProfileStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
 // Habilita animações de layout no Android (necessário para o acordeão do FAQ)
@@ -28,7 +29,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<ProfileStackParamList>;
 };
 
 /** Dados das perguntas frequentes, agrupados por categoria */

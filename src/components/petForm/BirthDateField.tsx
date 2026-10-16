@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors } from '../../constants/colors';
 import { calculateAgeFromDate } from '../../lib/petForm';
 import { petFormStyles as styles } from './petFormStyles';
@@ -31,7 +31,7 @@ export default function BirthDateField({
 }: Props) {
   const [show, setShow] = useState(false);
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
+  const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShow(false);
       if (selectedDate && event.type !== 'dismissed') {

@@ -35,10 +35,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, addDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { RootStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<RootStackParamList>;
   onComplete?: () => void; // Callback para avançar ao app após concluir ou pular
 };
 

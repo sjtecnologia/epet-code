@@ -19,13 +19,35 @@ import {
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { doc, getDoc, collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { UserDoc } from '../../types/database.types';
+import { ProfileStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
+/** Item do menu de configurações exibido na tela do perfil */
+type ProfileMenuItem = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  sub: string;
+  route: keyof ProfileStackParamList;
+  color: string;
+  bg: string;
+};
+
+const profileMenuItems: ProfileMenuItem[] = [
+  { icon: 'person-outline', label: 'Editar Perfil', sub: 'Alterar nome e informações', route: 'EditProfile', color: colors.primary, bg: colors.tertiary },
+  { icon: 'location-outline', label: 'Meus Endereços', sub: 'Gerenciar endereços salvos', route: 'ManageAddresses', color: colors.primary, bg: colors.tertiary },
+  { icon: 'notifications-outline', label: 'Notificações', sub: 'Configurar alertas', route: 'Notifications', color: colors.primary, bg: colors.tertiary },
+  { icon: 'shield-outline', label: 'Privacidade', sub: 'Controle seus dados', route: 'Privacy', color: colors.primary, bg: colors.tertiary },
+  { icon: 'help-circle-outline', label: 'Ajuda', sub: 'Suporte e FAQ', route: 'Help', color: colors.primary, bg: colors.tertiary },
+  { icon: 'link', label: 'Vincular 4YouPet', sub: 'Importar pets e vacinas do 4YouPet', route: 'Link4YouPet', color: '#ff6b35', bg: '#fff3e0' },
+];
+
 export default function ProfileScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const { user, signOut } = useAuth();
 
   // Dados exibidos no cabeçalho do perfil
@@ -51,7 +73,7 @@ export default function ProfileScreen() {
     try {
       const snap = await getDoc(doc(firestore, 'users', user.uid));
       if (snap.exists()) {
-        const data = snap.data() as any;
+        const data = snap.data() as UserDoc;
         setProfileData({
           name: data.name || user.email?.split('@')[0] || '',
           email: user.email || '',
@@ -139,14 +161,7 @@ export default function ProfileScreen() {
         {Platform.OS === 'ios' ? (
           /* iOS: lista agrupada com separadores inset e cantos arredondados */
           <View style={styles.menuSectionIOS}>
-            {[
-              { icon: 'person-outline', label: 'Editar Perfil', sub: 'Alterar nome e informações', route: 'EditProfile', color: colors.primary, bg: colors.tertiary },
-              { icon: 'location-outline', label: 'Meus Endereços', sub: 'Gerenciar endereços salvos', route: 'ManageAddresses', color: colors.primary, bg: colors.tertiary },
-              { icon: 'notifications-outline', label: 'Notificações', sub: 'Configurar alertas', route: 'Notifications', color: colors.primary, bg: colors.tertiary },
-              { icon: 'shield-outline', label: 'Privacidade', sub: 'Controle seus dados', route: 'Privacy', color: colors.primary, bg: colors.tertiary },
-              { icon: 'help-circle-outline', label: 'Ajuda', sub: 'Suporte e FAQ', route: 'Help', color: colors.primary, bg: colors.tertiary },
-              { icon: 'link', label: 'Vincular 4YouPet', sub: 'Importar pets e vacinas do 4YouPet', route: 'Link4YouPet', color: '#ff6b35', bg: '#fff3e0' },
-            ].map((item, index, arr) => (
+            {profileMenuItems.map((item, index, arr) => (
               <TouchableOpacity
                 key={item.route}
                 style={[styles.menuItemIOS, index < arr.length - 1 && styles.menuItemIOSSeparator]}
@@ -154,7 +169,7 @@ export default function ProfileScreen() {
                 activeOpacity={0.6}
               >
                 <View style={[styles.menuIconContainerIOS, { backgroundColor: item.bg }]}>
-                  <Ionicons name={item.icon as any} size={20} color={item.color} />
+                  <Ionicons name={item.icon} size={20} color={item.color} />
                 </View>
                 <View style={styles.menuContent}>
                   <Text style={styles.menuTextIOS}>{item.label}</Text>

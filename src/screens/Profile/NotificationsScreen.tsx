@@ -18,10 +18,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ProfileStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<ProfileStackParamList>;
 };
 
 /** Chave no AsyncStorage onde as configurações de notificação são persistidas */

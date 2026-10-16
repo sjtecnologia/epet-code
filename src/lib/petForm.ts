@@ -118,6 +118,25 @@ export function formatDateForDB(date: Date | null): string | null {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Normaliza um valor de data vindo do Firestore (Timestamp), Date, string ISO
+ * ou época em milissegundos em um objeto Date. Retorna null quando o valor é
+ * vazio ou não representa uma data válida.
+ */
+export function toDate(value: unknown): Date | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'object' && 'toDate' in value) {
+    const fn = (value as { toDate: unknown }).toDate;
+    if (typeof fn === 'function') return (fn as () => Date).call(value);
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+}
+
 /** Concatena rua, número e complemento em uma única string de endereço */
 export function buildFullAddress(street: string, number: string, complement: string): string {
   if (!street) return '';

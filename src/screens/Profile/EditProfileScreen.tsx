@@ -26,10 +26,12 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { firestore, storage } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { ProfileStackParamList } from '../../types/navigation.types';
+import { UserDoc } from '../../types/database.types';
 import { colors } from '../../constants/colors';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<ProfileStackParamList>;
 };
 
 export default function EditProfileScreen({ navigation }: Props) {
@@ -53,7 +55,7 @@ export default function EditProfileScreen({ navigation }: Props) {
     try {
       const snap = await getDoc(doc(firestore, 'users', user.uid));
       if (snap.exists()) {
-        const data = snap.data() as any;
+        const data = snap.data() as UserDoc;
         setFormData({
           name: data.name || '',
           phone: data.celular || data.phone || '',

@@ -16,6 +16,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { initializeAuth, getAuth } from 'firebase/auth';
+import type { Persistence } from 'firebase/auth';
 import * as FirebaseAuth from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -62,7 +63,9 @@ const fourYouPetApp = getApps().find(a => a.name === '4youpet') ?? initializeApp
 // O bloco try/catch evita erro em hot-reload do Expo, onde initializeAuth já foi chamado.
 let firebaseAuth: ReturnType<typeof getAuth>;
 try {
-  const maybeGetReactNativePersistence = (FirebaseAuth as any).getReactNativePersistence;
+  const maybeGetReactNativePersistence = (FirebaseAuth as unknown as {
+    getReactNativePersistence?: (storage: unknown) => Persistence;
+  }).getReactNativePersistence;
   if (typeof maybeGetReactNativePersistence === 'function') {
     firebaseAuth = initializeAuth(app, {
       // Usa AsyncStorage para manter a sessão do usuário mesmo após fechar o app

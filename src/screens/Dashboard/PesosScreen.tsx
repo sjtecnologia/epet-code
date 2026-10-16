@@ -285,7 +285,7 @@ export default function PesosScreen({ navigation, route }: Props) {
                   radius: 7,
                   pointerLabelWidth: 110,
                   pointerLabelHeight: 58,
-                  pointerLabelComponent: (items: any[]) => (
+                  pointerLabelComponent: (items: { value: number; label: string }[]) => (
                     <View style={styles.tooltipBox}>
                       <Text style={styles.tooltipPeso}>{items[0].value.toFixed(2)} kg</Text>
                       <Text style={styles.tooltipData}>{items[0].label}</Text>

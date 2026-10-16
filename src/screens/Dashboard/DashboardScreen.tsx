@@ -29,18 +29,26 @@ import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/
 import { firestore, firebaseAuth, firestore4YouPet } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Pet } from '../../types/database.types';
+import { DashboardStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 export const lastPetKey = (uid: string) => `@epet_last_pet_${uid}`;
 
+/** Produto exibido no carrossel da coleção 'products' do 4YouPet */
+type CarouselProduct = {
+  id: string;
+  name?: string;
+  images?: string | string[];
+};
+
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<DashboardStackParamList>;
 };
 
 export default function DashboardScreen({ navigation }: Props) {
   const [totalPets, setTotalPets] = useState(0);
-  const [carouselItems, setCarouselItems] = useState<any[]>([]);
+  const [carouselItems, setCarouselItems] = useState<CarouselProduct[]>([]);
   const [lastPet, setLastPet] = useState<Pet | null>(null);
   const [loadingCarousel, setLoadingCarousel] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -137,7 +145,7 @@ export default function DashboardScreen({ navigation }: Props) {
 
   const CAROUSEL_ITEM_WIDTH = SCREEN_WIDTH - 48;
 
-  const renderCarouselItem = ({ item }: { item: any }) => {
+  const renderCarouselItem = ({ item }: { item: CarouselProduct }) => {
     const imageUrl = Array.isArray(item.images) ? item.images[0] : item.images;
     return (
       <View style={[styles.carouselItem, { width: CAROUSEL_ITEM_WIDTH }]}>

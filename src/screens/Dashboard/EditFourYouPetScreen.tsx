@@ -22,12 +22,13 @@ import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { FourYouPet } from '../../types/database.types';
 import { colors } from '../../constants/colors';
 import { DashboardStackParamList } from '../../types/navigation.types';
+import { toDate } from '../../lib/petForm';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'EditFourYouPet'>;
@@ -35,15 +36,7 @@ type Props = {
 };
 
 /** Converte um Firestore Timestamp, Date ou string em um objeto Date */
-const parseBirthToDate = (birth: any): Date => {
-  if (!birth) return new Date();
-  try {
-    if (birth.toDate) return birth.toDate();
-    return new Date(birth);
-  } catch {
-    return new Date();
-  }
-};
+const parseBirthToDate = (birth: unknown): Date => toDate(birth) ?? new Date();
 
 /** Formata um objeto Date para exibição no padrão DD/MM/AAAA */
 const formatDateForDisplay = (date: Date): string => {
@@ -81,7 +74,7 @@ export default function EditFourYouPetScreen({ navigation, route }: Props) {
     castrado: pet.castrado ?? false,
   });
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
+  const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
       if (selectedDate && event.type !== 'dismissed') {

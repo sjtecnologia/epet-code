@@ -17,7 +17,7 @@ import { firestore } from '../../lib/firebase';
 import { DashboardStackParamList } from '../../types/navigation.types';
 import { FourYouPetAplic } from '../../types/database.types';
 import { colors } from '../../constants/colors';
-import { generatePetId } from '../../lib/petForm';
+import { generatePetId, toDate } from '../../lib/petForm';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'FourYouPetPet'>;
@@ -46,31 +46,22 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
   };
 
   /** Converte um Firestore Timestamp ou string em data no padrão DD/MM/AAAA */
-  const formatDate = (timestamp: any): string => {
-    if (!timestamp) return 'Não informado';
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return date.toLocaleDateString('pt-BR');
-    } catch {
-      return 'Não informado';
-    }
+  const formatDate = (timestamp: unknown): string => {
+    const date = toDate(timestamp);
+    return date ? date.toLocaleDateString('pt-BR') : 'Não informado';
   };
 
   /** Calcula a idade do pet a partir de um Timestamp Firestore ou string */
-  const calculateAge = (timestamp: any): string => {
-    if (!timestamp) return '';
-    try {
-      const birth = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      const today = new Date();
-      let years = today.getFullYear() - birth.getFullYear();
-      let months = today.getMonth() - birth.getMonth();
-      if (months < 0) { years--; months += 12; }
-      if (years > 0) return `${years} ano${years > 1 ? 's' : ''}`;
-      if (months > 0) return `${months} mês${months > 1 ? 'es' : ''}`;
-      return 'Filhote';
-    } catch {
-      return '';
-    }
+  const calculateAge = (timestamp: unknown): string => {
+    const birth = toDate(timestamp);
+    if (!birth) return '';
+    const today = new Date();
+    let years = today.getFullYear() - birth.getFullYear();
+    let months = today.getMonth() - birth.getMonth();
+    if (months < 0) { years--; months += 12; }
+    if (years > 0) return `${years} ano${years > 1 ? 's' : ''}`;
+    if (months > 0) return `${months} mês${months > 1 ? 'es' : ''}`;
+    return 'Filhote';
   };
 
   // Desaninha as aplicações de vacinas em uma lista plana para exibição
@@ -219,7 +210,7 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
   );
 }
 
-function InfoItem({ icon, label, value }: { icon: any; label: string; value: string }) {
+function InfoItem({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
   return (
     <View style={styles.infoItem}>
       <Ionicons name={icon} size={18} color={colors.primary} />

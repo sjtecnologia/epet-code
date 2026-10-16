@@ -15,10 +15,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ProfileStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<ProfileStackParamList>;
 };
 
 export default function Link4YouPetScreen({ navigation }: Props) {

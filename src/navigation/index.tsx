@@ -47,16 +47,13 @@ import { useAuth } from '../contexts/AuthContext';
 // Telas de autenticação
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
-// @ts-ignore
 import AddAddressScreen from '../screens/Auth/AddAddressScreen';
 
 // Telas do Dashboard (gestão de pets e-Pet)
 import DashboardScreen from '../screens/Dashboard/DashboardScreen';
-// @ts-ignore
 import NewPetScreen from '../screens/Dashboard/NewPetScreen';
 import PetCardScreen from '../screens/Dashboard/PetCardScreen';
 import VaccinesScreen from '../screens/Dashboard/VaccinesScreen';
-// @ts-ignore
 import EditPetScreen from '../screens/Dashboard/EditPetScreen';
 import ProntuarioScreen from '../screens/Dashboard/ProntuarioScreen';
 import PesosScreen from '../screens/Dashboard/PesosScreen';
@@ -65,11 +62,8 @@ import PesosScreen from '../screens/Dashboard/PesosScreen';
 import MyPetsScreen from '../screens/Dashboard/MyPetsScreen';
 
 // Telas do 4YouPet (pets importados do Firebase)
-// @ts-ignore
 import FourYouPetPetScreen from '../screens/Dashboard/FourYouPetPetScreen';
-// @ts-ignore
 import EditFourYouPetScreen from '../screens/Dashboard/EditFourYouPetScreen';
-// @ts-ignore
 import FourYouPetCardScreen from '../screens/Dashboard/FourYouPetCardScreen';
 
 // Telas de Perfil
@@ -79,7 +73,6 @@ import NotificationsScreen from '../screens/Profile/NotificationsScreen';
 import PrivacyScreen from '../screens/Profile/PrivacyScreen';
 import HelpScreen from '../screens/Profile/HelpScreen';
 import ManageAddressesScreen from '../screens/Profile/ManageAddressesScreen';
-// @ts-ignore
 import Link4YouPetScreen from '../screens/Profile/Link4YouPetScreen';
 
 // Tela de Busca

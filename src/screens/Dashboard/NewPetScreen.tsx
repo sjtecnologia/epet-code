@@ -29,6 +29,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firestore, firebaseAuth, storage } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';         // usuário autenticado
 import { Address } from '../../types/database.types';         // tipo do endereço
+import { DashboardStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';              // paleta de cores
 import { syncPublicPet } from '../../lib/publicPet';
 import {
@@ -57,7 +58,7 @@ import {
 } from '../../components/petForm';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<DashboardStackParamList>;
 };
 
 export default function NewPetScreen({ navigation }: Props) {
@@ -389,8 +390,9 @@ export default function NewPetScreen({ navigation }: Props) {
             user_id: firebaseUid,
           });
         }
-      } catch (fbErr: any) {
-        console.warn('[Firebase] Falha ao espelhar pet no 4YouPet:', fbErr.message);
+      } catch (fbErr) {
+        const message = fbErr instanceof Error ? fbErr.message : String(fbErr);
+        console.warn('[Firebase] Falha ao espelhar pet no 4YouPet:', message);
       }
 
       setCreatedPetName(formData.name);

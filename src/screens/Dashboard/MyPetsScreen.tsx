@@ -30,10 +30,11 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { firestore, firebaseAuth } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Pet, FourYouPet } from '../../types/database.types';
+import { MyPetsStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<MyPetsStackParamList>;
 };
 
 export default function MyPetsScreen({ navigation }: Props) {

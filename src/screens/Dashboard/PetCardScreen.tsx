@@ -57,7 +57,7 @@ type Props = {
 export default function PetCardScreen({ navigation, route }: Props) {
   const { pet } = route.params;                    // dados do pet recebidos via navegação
   const { user } = useAuth();
-  const qrRef = useRef<any>(null);                 // ref do componente QRCode (não usado diretamente)
+  const qrRef = useRef<QRCode | null>(null);        // ref do componente QRCode (não usado diretamente)
   const cardRef = useRef<ViewShotRef>(null); // ref para a View que será capturada pelo ViewShot
   const [sharing, setSharing] = useState(false);   // bloqueia o botão enquanto gera e compartilha a imagem
   const [pesagens, setPesagens] = useState<{ peso: number; data: string }[]>([]);

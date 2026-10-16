@@ -28,9 +28,10 @@ import * as Sharing from 'expo-sharing';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { FourYouPet } from '../../types/database.types';
+import { FourYouPet, UserDoc } from '../../types/database.types';
 import { colors } from '../../constants/colors';
 import { DashboardStackParamList } from '../../types/navigation.types';
+import { toDate } from '../../lib/petForm';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'FourYouPetCard'>;
@@ -46,37 +47,28 @@ type OwnerProfile = {
 };
 
 /** Converte Firestore Timestamp ou string em data no formato DD/MM/AAAA */
-const formatDate = (timestamp: any): string => {
-  if (!timestamp) return 'Não informado';
-  try {
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('pt-BR');
-  } catch {
-    return 'Não informado';
-  }
+const formatDate = (timestamp: unknown): string => {
+  const date = toDate(timestamp);
+  return date ? date.toLocaleDateString('pt-BR') : 'Não informado';
 };
 
 /** Calcula a idade do pet a partir de um Timestamp Firestore ou string */
-const calculateAge = (timestamp: any): string => {
-  if (!timestamp) return '';
-  try {
-    const birth = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const today = new Date();
-    let years = today.getFullYear() - birth.getFullYear();
-    let months = today.getMonth() - birth.getMonth();
-    if (months < 0) { years--; months += 12; }
-    if (years > 0) return `${years} ano${years > 1 ? 's' : ''}`;
-    if (months > 0) return `${months} mês${months > 1 ? 'es' : ''}`;
-    return 'Filhote';
-  } catch {
-    return '';
-  }
+const calculateAge = (timestamp: unknown): string => {
+  const birth = toDate(timestamp);
+  if (!birth) return '';
+  const today = new Date();
+  let years = today.getFullYear() - birth.getFullYear();
+  let months = today.getMonth() - birth.getMonth();
+  if (months < 0) { years--; months += 12; }
+  if (years > 0) return `${years} ano${years > 1 ? 's' : ''}`;
+  if (months > 0) return `${months} mês${months > 1 ? 'es' : ''}`;
+  return 'Filhote';
 };
 
 export default function FourYouPetCardScreen({ navigation, route }: Props) {
   const { pet } = route.params;
   const { user } = useAuth();
-  const qrRef = useRef<any>(null);
+  const qrRef = useRef<QRCode | null>(null);
   const cardRef = useRef<ViewShotRef>(null); // ref para captura da carteira como imagem
   const [sharing, setSharing] = useState(false);   // bloqueia o botão durante o compartilhamento
   // Dados do tutor carregados do perfil Firestore
@@ -97,7 +89,7 @@ export default function FourYouPetCardScreen({ navigation, route }: Props) {
     try {
       const snap = await getDoc(doc(firestore, 'users', user.uid));
       if (snap.exists()) {
-        const p = snap.data() as any;
+        const p = snap.data() as UserDoc;
         const addressParts = [p.street, p.number, p.complement].filter(Boolean);
         setOwnerProfile({
           name: p.name || '',

@@ -25,10 +25,11 @@ import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, w
 import { firestore } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Address } from '../../types/database.types';
+import { ProfileStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<ProfileStackParamList>;
 };
 
 export default function ManageAddressesScreen({ navigation }: Props) {

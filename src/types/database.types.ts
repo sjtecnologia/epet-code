@@ -31,6 +31,18 @@ export type Profile = {
   updated_at?: string;
 };
 
+/** Documento do usuário em Firestore `users/{uid}` */
+export type UserDoc = {
+  name?: string | null;
+  email?: string | null;
+  celular?: string | null;
+  phone?: string | null;
+  avatar_url?: string | null;
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+};
+
 export type FourYouPetAplic = {
   aplicated: boolean;
   dataaplicacao: unknown;

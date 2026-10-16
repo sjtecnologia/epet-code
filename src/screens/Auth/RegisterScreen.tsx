@@ -27,11 +27,12 @@ import {
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, FirebaseLikeError } from '../../contexts/AuthContext';
+import { RootStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<RootStackParamList>;
 };
 
 export default function RegisterScreen({ navigation }: Props) {
@@ -89,7 +90,7 @@ export default function RegisterScreen({ navigation }: Props) {
     setLoading(false);
 
     if (result.error) {
-      const code = (result.error as any).code;
+      const code = (result.error as FirebaseLikeError).code;
       const msg = code === 'auth/email-already-in-use'
         ? 'Este e-mail já está em uso.'
         : code === 'auth/invalid-email'
