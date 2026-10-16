@@ -36,19 +36,17 @@ import { DashboardStackParamList } from '../../types/navigation.types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lastPetKey } from './DashboardScreen';
 import { removePublicPet, syncPublicPet } from '../../lib/publicPet';
+import {
+  speciesOptions,
+  calculateAgeFromDate,
+  formatDateForDB,
+  buildFullAddress,
+} from '../../lib/petForm';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'EditPet'>;
   route: RouteProp<DashboardStackParamList, 'EditPet'>;
 };
-
-/** Opções de espécie (replicadas do NewPetScreen) */
-const speciesOptions = [
-  { id: 'dog', label: 'Cachorro', icon: 'paw' as const },
-  { id: 'cat', label: 'Gato', icon: 'paw' as const },
-  { id: 'bird', label: 'Pássaro', icon: 'leaf' as const },
-  { id: 'other', label: 'Outro', icon: 'ellipse' as const },
-];
 
 /** Converte uma data no formato AAAA-MM-DD ou DD/MM/AAAA em um objeto Date */
 // Parse date from various formats
@@ -97,55 +95,6 @@ const formatDateForDisplay = (date: Date): string => {
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const year = date.getFullYear();
   return `${day}/${month}/${year}`;
-};
-
-/** Calcula a idade do pet para exibição no formulário */
-// Calculate age from birth date
-const calculateAge = (birthDate: Date): string => {
-  const today = new Date();
-  const birth = new Date(birthDate);
-  
-  let years = today.getFullYear() - birth.getFullYear();
-  let months = today.getMonth() - birth.getMonth();
-  let days = today.getDate() - birth.getDate();
-  
-  if (days < 0) {
-    months--;
-    const lastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-    days += lastMonth.getDate();
-  }
-  
-  if (months < 0) {
-    years--;
-    months += 12;
-  }
-  
-  if (years > 0) {
-    return years === 1 ? '1 ano' : `${years} anos`;
-  } else if (months > 0) {
-    return months === 1 ? '1 mês' : `${months} meses`;
-  } else {
-    return days === 1 ? '1 dia' : `${days} dias`;
-  }
-};
-
-/** Formata um objeto Date para o padrão AAAA-MM-DD usado no banco de dados */
-// Format date for database (YYYY-MM-DD)
-const formatDateForDB = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-/** Concatena rua, número e complemento em uma string de endereço única */
-// Build full address from fields
-const buildFullAddress = (street: string, number: string, complement: string): string => {
-  if (!street) return '';
-  let address = street;
-  if (number) address += `, ${number}`;
-  if (complement) address += ` - ${complement}`;
-  return address;
 };
 
 export default function EditPetScreen({ navigation, route }: Props) {
@@ -633,7 +582,7 @@ export default function EditPetScreen({ navigation, route }: Props) {
                 {formatDateForDisplay(birthDate)}
               </Text>
               <Text style={styles.ageText}>
-                {calculateAge(birthDate)}
+                {calculateAgeFromDate(birthDate)}
               </Text>
             </View>
             <Ionicons name="chevron-down" size={20} color={colors.gray500} />

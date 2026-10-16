@@ -28,6 +28,13 @@ import { firestore } from '../../lib/firebase';
 import { Vaccine } from '../../types/database.types';
 import { colors } from '../../constants/colors';
 import { DashboardStackParamList } from '../../types/navigation.types';
+import {
+  COMMON_VACCINES,
+  maskDateInput,
+  isValidDateBR,
+  parseDateBR,
+  formatDateBR,
+} from '../../lib/petForm';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'Vaccines'>;
@@ -36,68 +43,6 @@ type Props = {
 
 /** Possíveis status de uma vacina baseados na data do próximo reforço */
 type VaccineStatus = 'up_to_date' | 'upcoming' | 'overdue' | 'no_reapply';
-
-/** Lista de vacinas comuns para facilitar o preenchimento rápido */
-const COMMON_VACCINES = [
-  'V8 / V10 (Polivalente)',
-  'Antirrábica',
-  'Gripe Canina (Tosse de Canil)',
-  'Leishmaniose',
-  'Giárdia',
-  'Tríplice Felina (V3)',
-  'Quádrupla Felina (V4)',
-  'FeLV (Leucemia Felina)',
-  'FIV / FeLV',
-  'Raiva Felina',
-  'Outra',
-];
-
-/** Formata uma data ISO (AAAA-MM-DD) para o padrão DD/MM/AAAA */
-function formatDateBR(dateString: string | null): string {
-  if (!dateString) return 'Não informado';
-  const [year, month, day] = dateString.split('-');
-  return `${day}/${month}/${year}`;
-}
-
-/** Converte data no formato DD/MM/AAAA para AAAA-MM-DD (ISO, usado no banco) */
-function parseDateBR(value: string): string {
-  // Converte dd/mm/yyyy para yyyy-mm-dd
-  const cleaned = value.replace(/\D/g, '');
-  if (cleaned.length !== 8) return value;
-  return `${cleaned.slice(4, 8)}-${cleaned.slice(2, 4)}-${cleaned.slice(0, 2)}`;
-}
-
-/** Aplica máscara DD/MM/AAAA conforme o usuário digita, impedindo valores inválidos */
-function maskDateInput(value: string): string {
-  let nums = value.replace(/\D/g, '');
-  // Clamp dia: primeiro dígito 0-3; se 3, segundo dígito só 0-1
-  if (nums.length >= 1 && parseInt(nums[0]) > 3) nums = '3' + nums.slice(1);
-  if (nums.length >= 2) {
-    if (nums[0] === '3' && parseInt(nums[1]) > 1) nums = nums[0] + '1' + nums.slice(2);
-    if (nums[0] === '0' && nums[1] === '0') nums = nums[0] + '1' + nums.slice(2);
-  }
-  // Clamp mês: primeiro dígito 0-1; se 1, segundo dígito só 0-2
-  if (nums.length >= 3 && parseInt(nums[2]) > 1) nums = nums.slice(0, 2) + '1' + nums.slice(3);
-  if (nums.length >= 4) {
-    if (nums[2] === '1' && parseInt(nums[3]) > 2) nums = nums.slice(0, 3) + '2' + nums.slice(4);
-    if (nums[2] === '0' && nums[3] === '0') nums = nums.slice(0, 3) + '1' + nums.slice(4);
-  }
-  nums = nums.slice(0, 8);
-  if (nums.length <= 2) return nums;
-  if (nums.length <= 4) return `${nums.slice(0, 2)}/${nums.slice(2)}`;
-  return `${nums.slice(0, 2)}/${nums.slice(2, 4)}/${nums.slice(4)}`;
-}
-
-/** Valida se uma string no formato DD/MM/AAAA representa uma data válida */
-function isValidDate(value: string): boolean {
-  const d = value.replace(/\D/g, '');
-  if (d.length !== 8) return false;
-  const day = parseInt(d.slice(0, 2), 10);
-  const month = parseInt(d.slice(2, 4), 10);
-  const year = parseInt(d.slice(4, 8), 10);
-  const date = new Date(year, month - 1, day);
-  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
-}
 
 /**
  * getVaccineStatus — calcula o status da vacina com base na data do próximo reforço.
@@ -198,11 +143,11 @@ export default function VaccinesScreen({ navigation, route }: Props) {
       Alert.alert('Erro', 'Informe o nome da vacina.');
       return;
     }
-    if (!isValidDate(formData.date_applied)) {
+    if (!isValidDateBR(formData.date_applied)) {
       Alert.alert('Erro', 'Informe uma data de aplicação válida (dd/mm/aaaa).');
       return;
     }
-    if (formData.next_due_date && !isValidDate(formData.next_due_date)) {
+    if (formData.next_due_date && !isValidDateBR(formData.next_due_date)) {
       Alert.alert('Erro', 'Data do próximo reforço inválida (dd/mm/aaaa).');
       return;
     }

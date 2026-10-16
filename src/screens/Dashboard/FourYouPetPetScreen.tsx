@@ -12,18 +12,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import uuid from 'react-native-uuid';
 import { doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { DashboardStackParamList } from '../../types/navigation.types';
 import { FourYouPetAplic } from '../../types/database.types';
 import { colors } from '../../constants/colors';
-
-/** Gera um ID no formato PET-XXXX-XXXX para pets do 4YouPet que não possuem um */
-const generatePetId = (): string => {
-  const raw = (uuid.v4() as string).replace(/-/g, '').toUpperCase();
-  return `PET-${raw.substring(0, 4)}-${raw.substring(4, 8)}`;
-};
+import { generatePetId } from '../../lib/petForm';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'FourYouPetPet'>;
