@@ -17,6 +17,9 @@
     ],
     "moduleResolution": "bundler",
     "noEmit": true,
+    "types": [
+      "jest"
+    ],
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "target": "ESNext"
