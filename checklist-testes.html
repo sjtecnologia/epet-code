@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>e-Pet — Checklist de Testes</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #4f46e5;
+      color: white;
+      padding: 20px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    header h1 { font-size: 1.25rem; font-weight: 700; }
+    header p  { font-size: 0.85rem; opacity: 0.85; }
+
+    .progress-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .progress-bar-bg {
+      width: 180px;
+      height: 10px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: #a5f3fc;
+      border-radius: 99px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-label {
+      font-size: 0.8rem;
+      white-space: nowrap;
+      opacity: 0.9;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-reset  { background: rgba(255,255,255,0.2); color: white; }
+    .btn-all    { background: #a5f3fc; color: #0f172a; }
+
+    main {
+      max-width: 800px;
+      margin: 32px auto;
+      padding: 0 16px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .section {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .section-header {
+      background: #eef2ff;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      gap: 8px;
+    }
+
+    .section-header:hover { background: #e0e7ff; }
+
+    .section-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #3730a3;
+    }
+
+    .section-badge {
+      font-size: 0.75rem;
+      background: #c7d2fe;
+      color: #3730a3;
+      border-radius: 99px;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+
+    .section-badge.done { background: #bbf7d0; color: #166534; }
+
+    .chevron {
+      font-size: 0.75rem;
+      color: #6366f1;
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    .section.collapsed .chevron { transform: rotate(-90deg); }
+    .section.collapsed .items   { display: none; }
+
+    .items { padding: 8px 0; }
+
+    .subsection-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      padding: 12px 20px 4px;
+    }
+
+    label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 9px 20px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      transition: background 0.15s;
+    }
+
+    label:hover { background: #f8fafc; }
+
+    label.checked { color: #86efac; text-decoration: line-through; }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #4f46e5;
+      flex-shrink: 0;
+      margin-top: 2px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>e-Pet — Checklist de Testes</h1>
+    <p>Marque cada item conforme for testando</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div class="progress-wrap">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <span class="progress-label" id="progressLabel">0 / 0</span>
+    </div>
+    <div class="actions">
+      <button class="btn btn-all"   onclick="checkAll()">Marcar todos</button>
+      <button class="btn btn-reset" onclick="resetAll()">Limpar</button>
+    </div>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<script>
+/* ---- DADOS ---- */
+var DATA = [];
+(function(){
+  function s(t,arr){ DATA.push({title:t,items:arr}); }
+  function sub(t){ return {sub:t}; }
+
+  s('Autenticacao',[
+    sub('Login'),
+    'Login com e-mail e senha validos',
+    'Login com e-mail invalido (formato errado)',
+    'Login com senha incorreta',
+    'Mensagem de erro para conta inexistente',
+    'Mensagem de erro sem conexao a internet',
+    'Toggle mostrar/ocultar senha',
+    'Modal Esqueceu a senha abre corretamente',
+    'Envio de e-mail de redefinicao de senha',
+    'Navegacao para tela de cadastro',
+    sub('Cadastro'),
+    'Cadastro com todos os campos validos',
+    'Validacao: campos obrigatorios vazios',
+    'Validacao: formato de e-mail invalido',
+    'Validacao: senhas diferentes',
+    'Validacao: senha menor que 8 caracteres',
+    'Validacao: senha sem letra maiuscula',
+    'Validacao: senha sem numero',
+    'Erro para e-mail ja cadastrado',
+    'Voltar para o Login',
+    sub('Onboarding de Endereco'),
+    'Busca automatica ao digitar CEP completo',
+    'CEP invalido exibe erro',
+    'Salvar endereco e avancar para o app',
+    'Pular esta etapa - entra no app sem endereco',
+    'Ao pular e fazer login novamente, nao pede endereco novamente (flag AsyncStorage)',
+  ]);
+
+  s('Roteamento Condicional',[
+    'Usuario nao logado - vai para AuthStack',
+    'Usuario logado sem endereco (sem flag de skip) - vai para AddAddressScreen',
+    'Usuario logado com endereco ou com skip - vai para MainTabs',
+  ]);
+
+  s('Dashboard',[
+    sub('DashboardScreen'),
+    'Contador de pets exibe total correto (e-Pet + 4YouPet, sem duplicatas)',
+    'Botao Adicionar Pet navega para NewPetScreen',
+    'Carrossel de produtos carrega e faz auto-scroll a cada 3s',
+    'Scroll manual no carrossel reinicia o timer',
+    'Dots de paginacao refletem o slide atual',
+    'Card de ultimo pet acessado aparece (se houver)',
+    'Toque no card do ultimo pet navega para PetCardScreen',
+    sub('Meus Pets'),
+    'Pets e-Pet listados corretamente',
+    'Pets 4YouPet listados (sem duplicar os que tem epet_id)',
+    'Banner laranja de vacinas vencidas exibe contagem correta',
+    'Pull-to-refresh atualiza a lista',
+    'FAB + navega para NewPetScreen',
+    'Toque em pet e-Pet vai para PetCardScreen',
+    'Toque em pet 4YouPet vai para FourYouPetPetScreen',
+  ]);
+
+  s('Cadastro de Pet (NewPetScreen)',[
+    'Salvar com todos os campos obrigatorios preenchidos',
+    'Selecao de especie (Cachorro, Gato, Passaro, Outro)',
+    'Campo Outro: validacao contra lista de animais aceitos (debounce 800ms)',
+    'Upload de foto pela galeria',
+    'Upload de foto pela camera',
+    'Selecao de endereco salvo via modal',
+    'Adicionar vacinas iniciais via modal (lista de vacinas comuns)',
+    'Registrar peso inicial',
+    'Pet ID gerado no formato PET-XXXX-XXXX',
+    'Modal de sucesso aparece ao salvar',
+    'Pet aparece na lista apos cadastro',
+  ]);
+
+  s('Carteira do Pet (PetCardScreen)',[
+    'Todos os dados do pet exibidos corretamente',
+    'Pet ID copiavel (clipboard)',
+    'QR Code gerado e visivel',
+    'Grafico de peso carrega (historico)',
+    'Botao compartilhar captura a view e abre menu nativo',
+    'Botao Editar navega para EditPetScreen',
+    'Pet e salvo como ultimo acessado no AsyncStorage',
+  ]);
+
+  s('Edicao de Pet (EditPetScreen)',[
+    'Campos pre-populados com dados existentes',
+    'Data aceita nos formatos YYYY-MM-DD e DD/MM/AAAA',
+    'Trocar foto (camera/galeria) so faz upload se alterada',
+    'Salvar atualiza dados no Firestore',
+    'Excluir pet pede confirmacao e remove do Firestore',
+    'Pet desaparece da lista apos exclusao',
+  ]);
+
+  s('Vacinas (VaccinesScreen)',[
+    'Status Em dia calculado (reforco > 30 dias)',
+    'Status Vence em breve calculado (reforco <= 30 dias)',
+    'Status Vencida calculado (reforco < hoje)',
+    'Status Dose unica calculado (sem data de reforco)',
+    'Badges de resumo no topo com contagens corretas',
+    'Adicionar vacina via modal com todos os campos',
+    'Selecionar vacina da lista de comuns',
+    'Editar vacina existente',
+    'Excluir vacina com confirmacao',
+    'Indicador de vacinas vencidas reflete no MyPetsScreen',
+  ]);
+
+  s('Prontuario (ProntuarioScreen)',[
+    'Lista de registros carrega corretamente',
+    'Adicionar registro via modal (chips de tipo com scroll horizontal)',
+    'Tipo Consulta com icone correto',
+    'Tipo Exame com icone correto',
+    'Tipo Procedimento com icone correto',
+    'Tipo Vacinacao com icone correto',
+    'Tipo Cirurgia com icone correto',
+    'Tipo Outro com icone correto',
+    'Excluir registro com confirmacao',
+    'FAB e botao no header abrem o modal',
+  ]);
+
+  s('Pesos (PesosScreen)',[
+    'Cards de Peso Atual e Variacao Total corretos',
+    'Variacao fica verde se perdeu peso, vermelho se ganhou',
+    'Grafico de linha carrega e anima',
+    'Pontos do grafico sao clicaveis',
+    'Scroll horizontal no grafico para muitas medicoes',
+    'Adicionar pesagem via modal',
+    'Excluir pesagem com confirmacao',
+    'Lista ordenada do mais recente para o mais antigo',
+  ]);
+
+  s('Pets 4YouPet',[
+    sub('FourYouPetPetScreen'),
+    'Dados do pet carregam corretamente',
+    'Auto-geracao de Pet ID se ausente (persiste no Firestore)',
+    'Pet ID copiavel',
+    'Vacinas Aplicadas e Pendentes exibidas corretamente',
+    'Botao Carteira do Pet navega para FourYouPetCardScreen',
+    'Botao Editar navega para EditFourYouPetScreen',
+    sub('EditFourYouPetScreen'),
+    'Campos pre-populados',
+    'DateTimePicker funciona para data de nascimento',
+    'Switch Castrado alterna corretamente',
+    'Salvar persiste no Firestore',
+    sub('FourYouPetCardScreen'),
+    'Dados do tutor buscados de users/uid no Firestore',
+    'Badge 4YouPet visivel',
+    'QR Code gerado',
+    'Compartilhamento captura a view e abre menu nativo',
+  ]);
+
+  s('Perfil',[
+    sub('ProfileScreen'),
+    'Avatar, nome e e-mail exibidos corretamente',
+    'Stats card com contador de pets e-Pet',
+    'Todos os itens de menu navegam para a tela correta',
+    'useFocusEffect recarrega dados ao voltar para o perfil',
+    'Botao Sair pede confirmacao e faz logout',
+    'Apos logout, vai para AuthStack',
+    sub('EditProfileScreen'),
+    'Campos pre-populados (nome, telefone)',
+    'Campo e-mail somente leitura',
+    'Trocar foto da galeria',
+    'Upload para Firebase Storage funciona',
+    'Modal de sucesso ao salvar',
+    'Dados atualizados refletem no ProfileScreen',
+    sub('ManageAddressesScreen'),
+    'Lista de enderecos carrega',
+    'Endereco padrao aparece primeiro',
+    'Adicionar endereco via modal',
+    'Editar endereco existente',
+    'Busca automatica por CEP (ViaCEP)',
+    'Definir endereco como padrao (remove padrao anterior via batch)',
+    'Excluir endereco com confirmacao',
+    'Primeiro endereco criado e automaticamente padrao',
+    sub('NotificationsScreen'),
+    'Toggle master (Push) desativa todos os outros',
+    'Cada toggle persiste no AsyncStorage',
+    'Configuracoes carregam ao abrir a tela',
+    sub('PrivacyScreen'),
+    'Toggles salvam e carregam do AsyncStorage',
+    'Solicitar download abre e-mail para suporte@e-pet.com.br',
+    'Solicitar exclusao pede confirmacao e abre e-mail',
+    sub('HelpScreen'),
+    'FAQ em acordeao abre/fecha corretamente',
+    'Categoria Geral funciona',
+    'Categoria Cadastro de Pets funciona',
+    'Categoria QR Code funciona',
+    'Categoria Conta e Perfil funciona',
+    sub('Link4YouPetScreen'),
+    'Fluxo de vinculacao da conta 4YouPet funciona',
+  ]);
+
+  s('Busca (SearchScreen)',[
+    'Busca retorna resultados relevantes',
+    'Estado vazio exibido quando nao ha resultados',
+  ]);
+
+  s('Splash Screen',[
+    'Animacao/logo exibida corretamente',
+    'Transicao para a tela correta apos o carregamento',
+  ]);
+
+  s('Geral / Infraestrutura',[
+    'App funciona sem conexao (erros tratados graciosamente)',
+    'Permissao de camera solicitada antes do uso',
+    'Permissao de galeria solicitada antes do uso',
+    'Nenhuma tela com scroll trava em conteudo longo',
+    'CustomAlert substitui Alert.alert nativo em todos os fluxos',
+    'Navegacao voltar funciona em todas as telas',
+  ]);
+})();
+
+const STORAGE_KEY = "epet_checklist_v1";
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+  catch { return {}; }
+}
+
+function saveState(state) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+let state = loadState();
+
+function itemId(sectionIndex, itemIndex) {
+  return `s${sectionIndex}_i${itemIndex}`;
+}
+
+function buildUI() {
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+
+  DATA.forEach((section, si) => {
+    const checkboxItems = section.items.filter(i => typeof i === "string");
+    const checkedCount  = checkboxItems.filter((_, ii) => {
+      const realIdx = section.items.indexOf(checkboxItems[ii]);
+      return state[itemId(si, realIdx)];
+    }).length;
+
+    const allDone = checkedCount === checkboxItems.length && checkboxItems.length > 0;
+
+    const div = document.createElement("div");
+    div.className = "section";
+    div.dataset.si = si;
+
+    const badge = `<span class="section-badge${allDone ? " done" : ""}">${checkedCount} / ${checkboxItems.length}</span>`;
+
+    div.innerHTML = `
+      <div class="section-header" onclick="toggleSection(${si})">
+        <span class="section-title">${section.title}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${badge}
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="items" id="items-${si}"></div>
+    `;
+
+    const itemsEl = div.querySelector(".items");
+
+    section.items.forEach((item, ii) => {
+      if (typeof item === "object" && item.sub) {
+        const sub = document.createElement("div");
+        sub.className = "subsection-title";
+        sub.textContent = item.sub;
+        itemsEl.appendChild(sub);
+        return;
+      }
+
+      const id  = itemId(si, ii);
+      const checked = !!state[id];
+
+      const lbl = document.createElement("label");
+      lbl.htmlFor = id;
+      if (checked) lbl.className = "checked";
+
+      lbl.innerHTML = `<input type="checkbox" id="${id}" ${checked ? "checked" : ""} /> ${item}`;
+      lbl.querySelector("input").addEventListener("change", e => {
+        state[id] = e.target.checked;
+        saveState(state);
+        lbl.className = e.target.checked ? "checked" : "";
+        updateProgress();
+        refreshBadge(si);
+      });
+
+      itemsEl.appendChild(lbl);
+    });
+
+    app.appendChild(div);
+  });
+
+  updateProgress();
+}
+
+function toggleSection(si) {
+  const sec = document.querySelector(`[data-si="${si}"]`);
+  sec.classList.toggle("collapsed");
+}
+
+function refreshBadge(si) {
+  const section = DATA[si];
+  const checkboxItems = section.items.filter(i => typeof i === "string");
+  const checkedCount  = checkboxItems.filter((_, ii) => {
+    const realIdx = section.items.indexOf(checkboxItems[ii]);
+    return state[itemId(si, realIdx)];
+  }).length;
+  const allDone = checkedCount === checkboxItems.length && checkboxItems.length > 0;
+  const badge = document.querySelector(`[data-si="${si}"] .section-badge`);
+  if (badge) {
+    badge.textContent = `${checkedCount} / ${checkboxItems.length}`;
+    badge.className = "section-badge" + (allDone ? " done" : "");
+  }
+}
+
+function updateProgress() {
+  let total = 0, done = 0;
+  DATA.forEach((section, si) => {
+    section.items.forEach((item, ii) => {
+      if (typeof item !== "string") return;
+      total++;
+      if (state[itemId(si, ii)]) done++;
+    });
+  });
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById("progressFill").style.width  = pct + "%";
+  document.getElementById("progressLabel").textContent = `${done} / ${total}`;
+}
+
+function checkAll() {
+  DATA.forEach((section, si) => {
+    section.items.forEach((item, ii) => {
+      if (typeof item !== "string") return;
+      state[itemId(si, ii)] = true;
+    });
+  });
+  saveState(state);
+  buildUI();
+}
+
+function resetAll() {
+  if (!confirm("Limpar todos os checks?")) return;
+  state = {};
+  saveState(state);
+  buildUI();
+}
+
+buildUI();
+</script>
+</body>
+</html>

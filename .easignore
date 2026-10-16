@@ -1,0 +1,30 @@
+# Ignorar node_modules
+node_modules/
+
+# Ignorar cache e builds locais
+.expo/
+.expo-shared/
+dist/
+build/
+
+# Ignorar arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Ignorar arquivos temporários
+*.log
+*.tmp
+.cache/
+
+# Ignorar configurações locais
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignorar arquivos de teste
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx

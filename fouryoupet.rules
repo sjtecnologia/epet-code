@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Permite leitura pública da coleção de produtos pelo e-Pet (carrossel da tela Início)
+    match /products/{productId} {
+      allow read: if true;
+    }
+
+    // Todas as outras coleções mantêm as regras existentes do 4YouPet
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

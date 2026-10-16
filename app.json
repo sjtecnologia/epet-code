@@ -1,0 +1,72 @@
+{
+  "expo": {
+    "name": "e-Pet",
+    "slug": "e-pet-mobile",
+    "version": "1.0.2",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "description": "Identificação digital para pets - Sistema completo de carteira digital com QR Code para identificação rápida e segura do seu animal de estimação.",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#22B14C"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.epet",
+      "buildNumber": "11",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#22B14C"
+      },
+      "package": "com.epet",
+      "versionCode": 11,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir que o PetID acesse a câmera para escanear QR Codes dos pets."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir que o PetID acesse suas fotos para adicionar imagens dos pets."
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      "@react-native-community/datetimepicker",
+      "expo-sharing",
+      "expo-status-bar"
+    ],
+    "owner": "e-pet",
+    "extra": {
+      "eas": {
+        "projectId": "9943f0ba-378e-42b5-807e-b352814b2f4c"
+      }
+    }
+  }
+}

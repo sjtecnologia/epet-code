@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function ownsPet(petId) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/pets/$(petId)).data.user_id == request.auth.uid;
+    }
+
+    function isValidPublicPet(petId, data) {
+      return data.keys().hasOnly([
+        'source_pet_id', 'pet_id', 'name', 'species', 'breed', 'photo_url',
+        'owner_name', 'owner_phone', 'updated_at'
+      ])
+        && data.source_pet_id is string
+        && data.pet_id == petId
+        && data.name is string
+        && data.species is string
+        && (data.breed == null || data.breed is string)
+        && (data.photo_url == null || data.photo_url is string)
+        && data.owner_name is string
+        && data.owner_phone is string
+        && data.updated_at is string;
+    }
+
+    // Dados completos: visíveis exclusivamente ao tutor.
+    match /pets/{petId} {
+      allow get, list: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.user_id == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.user_id == request.auth.uid
+                    && request.resource.data.user_id == resource.data.user_id;
+      allow delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+
+      match /vaccines/{vaccineId} {
+        allow read, write: if ownsPet(petId);
+      }
+
+      match /prontuario/{recordId} {
+        allow read, write: if ownsPet(petId);
+      }
+
+      match /weights/{weightId} {
+        allow read, write: if ownsPet(petId);
+      }
+    }
+
+    // Pets 4YouPet completos também são privados ao tutor.
+    match /pet/{petId} {
+      allow get, list: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.user_id == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.user_id == request.auth.uid
+                    && request.resource.data.user_id == resource.data.user_id;
+      allow delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+    }
+
+    // Ficha mínima consultada pelo QR: não permite listagem nem contém
+    // endereço, e-mail, observações, prontuário, vacinas ou peso.
+    match /publicPets/{petId} {
+      allow get: if true;
+      allow create: if isValidPublicPet(petId, request.resource.data)
+                    && ownsPet(request.resource.data.source_pet_id);
+      allow update: if isValidPublicPet(petId, request.resource.data)
+                    && request.resource.data.source_pet_id == resource.data.source_pet_id
+                    && ownsPet(resource.data.source_pet_id);
+      allow delete: if ownsPet(resource.data.source_pet_id);
+    }
+
+    match /products/{productId} {
+      // Catálogo exibido na tela inicial; não contém dados de usuários.
+      // A instância de catálogo não possui sessão Firebase própria.
+      allow read: if true;
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /addresses/{addressId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+node_modules/
+.expo/
+.expo-*/
+dist/
+*.log
+.env
+.DS_Store
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Credenciais de build — contém senhas do keystore Android
+credentials.json
+credentials/
+
+# Arquivos de build gerados
+generate-assets.js
+
+# Binários de build (AAB/IPA)
+artifacts/
+
+# Certificado de assinatura Apple
+upload_certificate.pem
+
+# Google Services (credenciais do projeto Firebase Android)
+google-services.json
