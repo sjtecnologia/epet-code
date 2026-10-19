@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   User as FirebaseUser,
   createUserWithEmailAndPassword,
@@ -13,7 +13,12 @@ type AuthContextType = {
   user: FirebaseUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, name: string, phone: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    phone: string,
+  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 };
 
@@ -69,16 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (
-    email: string,
-    password: string,
-    name: string,
-    phone: string,
-  ) => {
+  const signUp = async (email: string, password: string, name: string, phone: string) => {
     try {
       const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
       await createFirestoreUserDoc(credential.user.uid, name, email, phone);
-      console.log('[Auth] Conta criada e documento Firestore criado');
       return { error: null };
     } catch (err) {
       const e = err as FirebaseLikeError;

@@ -9,17 +9,20 @@ O e-Pet ("nós", "nosso" ou "app") se compromete a proteger a privacidade de seu
 ## 2. Informações que Coletamos
 
 ### 2.1 Informações Fornecidas por Você
+
 - **Informações da Conta**: Nome, e-mail, telefone e endereço
 - **Informações do Pet**: Nome, espécie, raça, data de nascimento, fotos e informações médicas
 - **Dados de Localização**: Endereço cadastrado para localização do tutor
 
 ### 2.2 Informações Coletadas Automaticamente
+
 - **Dados de Uso**: Informações sobre como você usa o aplicativo
 - **Dados do Dispositivo**: Tipo de dispositivo, sistema operacional, identificadores únicos
 
 ## 3. Como Usamos Suas Informações
 
 Utilizamos as informações coletadas para:
+
 - Fornecer e manter o serviço de identificação digital para pets
 - Gerar carteiras digitais com QR Code
 - Permitir que pessoas encontrem tutores de pets perdidos
@@ -30,12 +33,15 @@ Utilizamos as informações coletadas para:
 ## 4. Compartilhamento de Informações
 
 ### 4.1 Quando Compartilhamos
+
 Suas informações pessoais **só são compartilhadas** quando:
+
 - Alguém escaneia o QR Code do seu pet (compartilhamos apenas: nome do pet, nome do tutor e telefone de contato)
 - É necessário para cumprir obrigações legais
 - Você nos autoriza explicitamente
 
 ### 4.2 Não Vendemos Dados
+
 **Nunca vendemos suas informações pessoais para terceiros.**
 
 ## 5. Armazenamento e Segurança
@@ -48,6 +54,7 @@ Suas informações pessoais **só são compartilhadas** quando:
 ## 6. Seus Direitos
 
 Você tem o direito de:
+
 - **Acessar** suas informações pessoais
 - **Corrigir** dados incorretos ou desatualizados
 - **Excluir** sua conta e todos os dados associados
@@ -67,6 +74,7 @@ Nosso serviço não se destina a menores de 13 anos. Não coletamos intencionalm
 ## 9. Cookies e Tecnologias Semelhantes
 
 O aplicativo pode usar tecnologias de armazenamento local para melhorar a experiência do usuário, como:
+
 - Manter você conectado
 - Lembrar suas preferências
 - Coletar estatísticas de uso anônimas
@@ -82,6 +90,7 @@ Podemos atualizar esta Política de Privacidade periodicamente. Notificaremos vo
 ## 12. Legislação Aplicável
 
 Esta Política de Privacidade é regida pelas leis brasileiras, incluindo:
+
 - Lei Geral de Proteção de Dados (LGPD - Lei nº 13.709/2018)
 - Código de Defesa do Consumidor
 - Marco Civil da Internet

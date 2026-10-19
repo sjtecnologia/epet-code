@@ -66,7 +66,9 @@ export default function AddressModal({
                           size={20}
                           color={selected ? colors.primary : colors.gray600}
                         />
-                        <Text style={[styles.addressLabel, selected && styles.addressLabelSelected]}>
+                        <Text
+                          style={[styles.addressLabel, selected && styles.addressLabelSelected]}
+                        >
                           {address.label}
                         </Text>
                         {address.is_default && (

@@ -5,16 +5,8 @@
  * '@e_pet_notifications'. Quando notificações globais são desabilitadas,
  * todas as sub-configurações também são desativadas automaticamente.
  */
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Switch,
-  ScrollView,
-  Alert,
-} from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -28,22 +20,63 @@ type Props = {
 /** Chave no AsyncStorage onde as configurações de notificação são persistidas */
 const NOTIFICATIONS_KEY = '@e_pet_notifications';
 
+type NotificationSettings = {
+  pushEnabled: boolean;
+  petUpdates: boolean;
+  reminders: boolean;
+  marketing: boolean;
+  sound: boolean;
+  vibration: boolean;
+};
+
+/** Item de configuração de notificação com switch */
+function NotificationItem({
+  icon,
+  title,
+  description,
+  value,
+  onToggle,
+  disabled = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  description: string;
+  value: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <View style={[styles.settingItem, disabled && styles.settingItemDisabled]}>
+      <View style={styles.settingIcon}>
+        <Ionicons name={icon} size={22} color={disabled ? colors.gray400 : colors.primary} />
+      </View>
+      <View style={styles.settingContent}>
+        <Text style={[styles.settingTitle, disabled && styles.settingTitleDisabled]}>{title}</Text>
+        <Text style={styles.settingDescription}>{description}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{ false: colors.gray300, true: colors.secondary }}
+        thumbColor={value ? colors.primary : colors.gray500}
+        disabled={disabled}
+      />
+    </View>
+  );
+}
+
 export default function NotificationsScreen({ navigation }: Props) {
-  const [settings, setSettings] = useState({
-    pushEnabled: true,      // habilita/desabilita todas as notificações
-    petUpdates: true,       // atualizações sobre os pets
-    reminders: true,        // lembretes de vacinas e consultas
-    marketing: false,       // novidades e promoções
-    sound: true,            // som nas notificações
-    vibration: true,        // vibração nas notificações
+  const [settings, setSettings] = useState<NotificationSettings>({
+    pushEnabled: true, // habilita/desabilita todas as notificações
+    petUpdates: true, // atualizações sobre os pets
+    reminders: true, // lembretes de vacinas e consultas
+    marketing: false, // novidades e promoções
+    sound: true, // som nas notificações
+    vibration: true, // vibração nas notificações
   });
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
   /** Carrega as configurações salvas no AsyncStorage */
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const saved = await AsyncStorage.getItem(NOTIFICATIONS_KEY);
       if (saved) {
@@ -52,10 +85,14 @@ export default function NotificationsScreen({ navigation }: Props) {
     } catch (error) {
       console.error('Error loading settings:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   /** Persiste as novas configurações no AsyncStorage e atualiza o estado */
-  const saveSettings = async (newSettings: typeof settings) => {
+  const saveSettings = async (newSettings: NotificationSettings) => {
     try {
       await AsyncStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(newSettings));
       setSettings(newSettings);
@@ -65,50 +102,17 @@ export default function NotificationsScreen({ navigation }: Props) {
   };
 
   /** Alterna uma configuração específica; desabilitar 'pushEnabled' desativa todas as outras */
-  const toggleSetting = (key: keyof typeof settings) => {
+  const toggleSetting = (key: keyof NotificationSettings) => {
     const newSettings = { ...settings, [key]: !settings[key] };
-    
+
     if (key === 'pushEnabled' && !newSettings.pushEnabled) {
       newSettings.petUpdates = false;
       newSettings.reminders = false;
       newSettings.marketing = false;
     }
-    
+
     saveSettings(newSettings);
   };
-
-  const NotificationItem = ({
-    icon,
-    title,
-    description,
-    settingKey,
-    disabled = false,
-  }: {
-    icon: keyof typeof Ionicons.glyphMap;
-    title: string;
-    description: string;
-    settingKey: keyof typeof settings;
-    disabled?: boolean;
-  }) => (
-    <View style={[styles.settingItem, disabled && styles.settingItemDisabled]}>
-      <View style={styles.settingIcon}>
-        <Ionicons name={icon} size={22} color={disabled ? colors.gray400 : colors.primary} />
-      </View>
-      <View style={styles.settingContent}>
-        <Text style={[styles.settingTitle, disabled && styles.settingTitleDisabled]}>
-          {title}
-        </Text>
-        <Text style={styles.settingDescription}>{description}</Text>
-      </View>
-      <Switch
-        value={settings[settingKey]}
-        onValueChange={() => toggleSetting(settingKey)}
-        trackColor={{ false: colors.gray300, true: colors.secondary }}
-        thumbColor={settings[settingKey] ? colors.primary : colors.gray500}
-        disabled={disabled}
-      />
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -128,7 +132,8 @@ export default function NotificationsScreen({ navigation }: Props) {
             icon="notifications"
             title="Notificações Push"
             description="Ative para receber notificações"
-            settingKey="pushEnabled"
+            value={settings.pushEnabled}
+            onToggle={() => toggleSetting('pushEnabled')}
           />
         </View>
 
@@ -139,21 +144,24 @@ export default function NotificationsScreen({ navigation }: Props) {
             icon="paw"
             title="Atualizações do Pet"
             description="Lembretes de vacinas e consultas"
-            settingKey="petUpdates"
+            value={settings.petUpdates}
+            onToggle={() => toggleSetting('petUpdates')}
             disabled={!settings.pushEnabled}
           />
           <NotificationItem
             icon="alarm"
             title="Lembretes"
             description="Lembretes personalizados"
-            settingKey="reminders"
+            value={settings.reminders}
+            onToggle={() => toggleSetting('reminders')}
             disabled={!settings.pushEnabled}
           />
           <NotificationItem
             icon="megaphone"
             title="Novidades e Promoções"
             description="Receba dicas e ofertas"
-            settingKey="marketing"
+            value={settings.marketing}
+            onToggle={() => toggleSetting('marketing')}
             disabled={!settings.pushEnabled}
           />
         </View>
@@ -165,14 +173,16 @@ export default function NotificationsScreen({ navigation }: Props) {
             icon="volume-high"
             title="Som"
             description="Tocar som nas notificações"
-            settingKey="sound"
+            value={settings.sound}
+            onToggle={() => toggleSetting('sound')}
             disabled={!settings.pushEnabled}
           />
           <NotificationItem
             icon="phone-portrait"
             title="Vibração"
             description="Vibrar ao receber notificações"
-            settingKey="vibration"
+            value={settings.vibration}
+            onToggle={() => toggleSetting('vibration')}
             disabled={!settings.pushEnabled}
           />
         </View>
@@ -180,7 +190,8 @@ export default function NotificationsScreen({ navigation }: Props) {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={20} color={colors.primary} />
           <Text style={styles.infoText}>
-            Você pode alterar as permissões de notificação a qualquer momento nas configurações do seu dispositivo.
+            Você pode alterar as permissões de notificação a qualquer momento nas configurações do
+            seu dispositivo.
           </Text>
         </View>
 

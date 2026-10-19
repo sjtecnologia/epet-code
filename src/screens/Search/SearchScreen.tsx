@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SearchScreen — tela de busca pública de pets por ID ou QR Code.
  *
  * Permite localizar qualquer pet cadastrado no e-Pet (Firestore coleção 'pets') ou no 4YouPet
@@ -9,7 +9,7 @@
  * Caso o pet seja encontrado, exibe seus dados públicos e as informações
  * de contato do tutor para facilitar a devolução em caso de perda.
  */
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -20,16 +20,17 @@ import {
   Image,
   ActivityIndicator,
   Linking,
-  Modal,
   Platform,
   SafeAreaView,
 } from 'react-native';
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { colors } from '../../constants/colors';
+import { getSpeciesLabel, getSpeciesIcon } from '../../lib/species';
+import { QrScannerModal } from '../../components/search/QrScannerModal';
 
 /**
  * Aceita o formato atual (somente o ID) e o JSON emitido por versões antigas
@@ -69,12 +70,12 @@ type PublicPet = {
 };
 
 export default function SearchScreen() {
-  const [searchId, setSearchId] = useState('');          // ID digitado pelo usuário
-  const [loading, setLoading] = useState(false);          // indica busca em andamento
+  const [searchId, setSearchId] = useState(''); // ID digitado pelo usuário
+  const [loading, setLoading] = useState(false); // indica busca em andamento
   const [petData, setPetData] = useState<PublicPet | null>(null); // dados do pet encontrado
-  const [notFound, setNotFound] = useState(false);        // true quando nenhum pet foi encontrado
-  const [showScanner, setShowScanner] = useState(false);  // exibe o modal com a câmera
-  const [scanned, setScanned] = useState(false);          // evita múltiplas leituras do QR Code
+  const [notFound, setNotFound] = useState(false); // true quando nenhum pet foi encontrado
+  const [showScanner, setShowScanner] = useState(false); // exibe o modal com a câmera
+  const [scanned, setScanned] = useState(false); // evita múltiplas leituras do QR Code
   const [permission, requestPermission] = useCameraPermissions(); // permissão de câmera
 
   /**
@@ -149,76 +150,6 @@ export default function SearchScreen() {
     }
   };
 
-  /** Retorna o rótulo da espécie em português */
-  const getSpeciesLabel = (species?: string) => {
-    switch (species) {
-      case 'dog': return 'Cachorro';
-      case 'cat': return 'Gato';
-      case 'bird': return 'Pássaro';
-      default: return 'Outro';
-    }
-  };
-
-  /** Retorna o nome do ícone Ionicons para a espécie */
-  const getSpeciesIcon = (species?: string): keyof typeof Ionicons.glyphMap => {
-    switch (species) {
-      case 'dog': return 'paw';
-      case 'cat': return 'paw';
-      case 'bird': return 'leaf';
-      default: return 'paw';
-    }
-  };
-
-  /** Formata uma data ISO para exibição no padrão DD/MM/AAAA */
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Não informado';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
-  };
-
-  const calculateAge = (dateString: string | null): string => {
-    if (!dateString) return '';
-    
-    const today = new Date();
-    const birth = new Date(dateString);
-    
-    let years = today.getFullYear() - birth.getFullYear();
-    let months = today.getMonth() - birth.getMonth();
-    let days = today.getDate() - birth.getDate();
-    
-    if (days < 0) {
-      months--;
-      const lastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-      days += lastMonth.getDate();
-    }
-    
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
-    
-    if (years > 0) {
-      return years === 1 ? '1 ano' : `${years} anos`;
-    } else if (months > 0) {
-      return months === 1 ? '1 mês' : `${months} meses`;
-    } else {
-      return days === 1 ? '1 dia' : `${days} dias`;
-    }
-  };
-
-  const handleWhatsApp = () => {
-    if (petData?.owner_phone) {
-      const phone = petData.owner_phone.replace(/\D/g, '');
-      Linking.openURL(`whatsapp://send?phone=55${phone}&text=Olá! Encontrei seu pet ${petData.name}.`);
-    }
-  };
-
-  const handleEmail = () => {
-    if (petData?.owner_email) {
-      Linking.openURL(`mailto:${petData.owner_email}?subject=Encontrei seu pet ${petData.name}`);
-    }
-  };
-
   return (
     <View style={styles.container}>
       {Platform.OS === 'ios' ? (
@@ -253,18 +184,10 @@ export default function SearchScreen() {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity
-            style={styles.qrButton}
-            onPress={handleOpenScanner}
-            disabled={loading}
-          >
+          <TouchableOpacity style={styles.qrButton} onPress={handleOpenScanner} disabled={loading}>
             <Ionicons name="qr-code" size={22} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.searchButton}
-            onPress={handleSearch}
-            disabled={loading}
-          >
+          <TouchableOpacity style={styles.searchButton} onPress={handleSearch} disabled={loading}>
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
@@ -273,17 +196,15 @@ export default function SearchScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={Platform.OS === 'ios' ? { paddingBottom: 110 } : undefined}
-        >
+        <ScrollView showsVerticalScrollIndicator={false}>
           {/* Instructions */}
           {!petData && !notFound && !loading && (
             <View style={styles.instructionsCard}>
               <Ionicons name="information-circle" size={48} color={colors.primary} />
               <Text style={styles.instructionsTitle}>Como funciona?</Text>
               <Text style={styles.instructionsText}>
-                Digite o ID que está na coleira ou documento do pet para encontrar as informações do tutor e entrar em contato.
+                Digite o ID que está na coleira ou documento do pet para encontrar as informações do
+                tutor e entrar em contato.
               </Text>
             </View>
           )}
@@ -294,7 +215,8 @@ export default function SearchScreen() {
               <Ionicons name="sad-outline" size={64} color={colors.gray400} />
               <Text style={styles.notFoundTitle}>Pet não encontrado</Text>
               <Text style={styles.notFoundText}>
-                Não encontramos nenhum pet com o ID "{searchId}". Verifique se digitou corretamente.
+                Não encontramos nenhum pet com o ID &quot;{searchId}&quot;. Verifique se digitou
+                corretamente.
               </Text>
             </View>
           )}
@@ -314,7 +236,11 @@ export default function SearchScreen() {
                     <Image source={{ uri: petData.photo_url }} style={styles.petPhoto} />
                   ) : (
                     <View style={styles.petPhotoPlaceholder}>
-                      <Ionicons name={getSpeciesIcon(petData.species)} size={40} color={colors.primary} />
+                      <Ionicons
+                        name={getSpeciesIcon(petData.species)}
+                        size={40}
+                        color={colors.primary}
+                      />
                     </View>
                   )}
                   <View style={styles.petHeaderInfo}>
@@ -325,7 +251,11 @@ export default function SearchScreen() {
 
                 <View style={styles.petDetails}>
                   <View style={styles.detailRow}>
-                    <Ionicons name={getSpeciesIcon(petData.species)} size={18} color={colors.primary} />
+                    <Ionicons
+                      name={getSpeciesIcon(petData.species)}
+                      size={18}
+                      color={colors.primary}
+                    />
                     <Text style={styles.detailLabel}>Espécie:</Text>
                     <Text style={styles.detailValue}>{getSpeciesLabel(petData.species)}</Text>
                   </View>
@@ -369,67 +299,12 @@ export default function SearchScreen() {
       </View>
 
       {/* Modal do Scanner de QR Code */}
-      <Modal
+      <QrScannerModal
         visible={showScanner}
-        animationType="slide"
-        onRequestClose={() => setShowScanner(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: '#000' }}>
-          <CameraView
-            style={{ flex: 1 }}
-            facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-          />
-          {/* Header - positioned absolute */}
-          <View style={{ 
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            right: 0,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            zIndex: 10,
-            paddingHorizontal: 16,
-            paddingTop: 16,
-            paddingBottom: 16,
-          }}>
-            <TouchableOpacity
-              style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}
-              onPress={() => setShowScanner(false)}
-            >
-              <Ionicons name="close" size={28} color="#fff" />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: '600', color: '#fff' }}>Escanear QR Code</Text>
-            <View style={{ width: 44 }} />
-          </View>
-
-          {/* Center Frame - positioned absolute */}
-          <View style={{ 
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            marginTop: -120,
-            marginLeft: -120,
-            width: 240, 
-            height: 240, 
-            borderWidth: 2, 
-            borderColor: '#fff', 
-            borderRadius: 16,
-            backgroundColor: 'transparent',
-            zIndex: 8
-          }} />
-
-          {/* Hint Text - positioned absolute */}
-          <View style={{ position: 'absolute', bottom: 80, left: 0, right: 0, paddingHorizontal: 32 }}>
-            <Text style={{ textAlign: 'center', color: '#fff', fontSize: 14 }}>
-              Aponte a câmera para o QR Code da carteira do pet
-            </Text>
-          </View>
-        </View>
-      </Modal>
+        paused={scanned}
+        onScanned={handleBarCodeScanned}
+        onClose={() => setShowScanner(false)}
+      />
     </View>
   );
 }
@@ -588,17 +463,6 @@ const styles = StyleSheet.create({
     color: '#10B981',
     flex: 1,
   },
-  badge4YouPet: {
-    backgroundColor: '#ff6b35',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badge4YouPetText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
   petSection: {
     marginBottom: 8,
   },
@@ -653,41 +517,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '600',
   },
-  notesSection: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: colors.backgroundLight,
-    borderRadius: 8,
-  },
-  notesLabel: {
-    fontSize: 12,
-    color: colors.gray600,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  notesText: {
-    fontSize: 14,
-    color: colors.gray700,
-    lineHeight: 20,
-  },
   divider: {
     height: 1,
     backgroundColor: colors.gray300,
     marginVertical: 20,
-  },
-  infoMessage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.tertiary,
-    padding: 16,
-    borderRadius: 12,
-  },
-  infoMessageText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.gray700,
-    lineHeight: 20,
   },
   ownerSection: {
     marginBottom: 24,

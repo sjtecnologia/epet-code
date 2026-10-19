@@ -1,11 +1,11 @@
-﻿/**
+/**
  * PrivacyScreen — configurações de privacidade do usuário.
  *
  * Controla visibilidade de dados pessoais (e-mail, telefone, endereço),
  * analíticos e personalização. As preferências são salvas no AsyncStorage.
  * Também permite solicitar a exclusão de dados via e-mail.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -29,22 +29,60 @@ type Props = {
 /** Chave no AsyncStorage onde as preferências de privacidade são persistidas */
 const PRIVACY_KEY = '@e_pet_privacy';
 
+type PrivacySettings = {
+  shareProfile: boolean;
+  showEmail: boolean;
+  showPhone: boolean;
+  showAddress: boolean;
+  analytics: boolean;
+  personalization: boolean;
+};
+
+/** Item de preferência de privacidade com switch */
+function PrivacyItem({
+  icon,
+  title,
+  description,
+  value,
+  onToggle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  description: string;
+  value: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <View style={styles.settingItem}>
+      <View style={styles.settingIcon}>
+        <Ionicons name={icon} size={22} color={colors.primary} />
+      </View>
+      <View style={styles.settingContent}>
+        <Text style={styles.settingTitle}>{title}</Text>
+        <Text style={styles.settingDescription}>{description}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{ false: colors.gray300, true: colors.secondary }}
+        thumbColor={value ? colors.primary : colors.gray500}
+      />
+    </View>
+  );
+}
+
 export default function PrivacyScreen({ navigation }: Props) {
-  const [settings, setSettings] = useState({
-    shareProfile: false,     // permitir que outros usuários vejam o perfil
-    showEmail: false,        // exibir e-mail para outros
-    showPhone: true,         // exibir telefone para outros
-    showAddress: true,       // exibir endereço para outros
-    analytics: true,         // enviar dados de uso anônimos
-    personalization: true,   // personalização de conteúdo
+  const [settings, setSettings] = useState<PrivacySettings>({
+    shareProfile: false, // permitir que outros usuários vejam o perfil
+    showEmail: false, // exibir e-mail para outros
+    showPhone: true, // exibir telefone para outros
+    showAddress: true, // exibir endereço para outros
+    analytics: true, // enviar dados de uso anônimos
+    personalization: true, // personalização de conteúdo
   });
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
   /** Carrega as preferências de privacidade salvas no AsyncStorage */
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const saved = await AsyncStorage.getItem(PRIVACY_KEY);
       if (saved) {
@@ -53,10 +91,14 @@ export default function PrivacyScreen({ navigation }: Props) {
     } catch (error) {
       console.error('Error loading settings:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   /** Persiste as novas preferências no AsyncStorage e atualiza o estado */
-  const saveSettings = async (newSettings: typeof settings) => {
+  const saveSettings = async (newSettings: PrivacySettings) => {
     try {
       await AsyncStorage.setItem(PRIVACY_KEY, JSON.stringify(newSettings));
       setSettings(newSettings);
@@ -66,7 +108,7 @@ export default function PrivacyScreen({ navigation }: Props) {
   };
 
   /** Alterna uma preferência de privacidade */
-  const toggleSetting = (key: keyof typeof settings) => {
+  const toggleSetting = (key: keyof PrivacySettings) => {
     const newSettings = { ...settings, [key]: !settings[key] };
     saveSettings(newSettings);
   };
@@ -83,12 +125,10 @@ export default function PrivacyScreen({ navigation }: Props) {
           style: 'destructive',
           onPress: () =>
             Linking.openURL(
-              'mailto:support.epet@gmail.com?subject=Solicita%C3%A7%C3%A3o%20de%20Exclus%C3%A3o%20de%20Dados&body=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20a%20exclus%C3%A3o%20permanente%20da%20minha%20conta%20e%20de%20todos%20os%20meus%20dados%20no%20aplicativo%20e-Pet.'
-            ).catch(() =>
-              Alert.alert('Erro', 'Não foi possível abrir o aplicativo de e-mail.')
-            ),
+              'mailto:support.epet@gmail.com?subject=Solicita%C3%A7%C3%A3o%20de%20Exclus%C3%A3o%20de%20Dados&body=Ol%C3%A1%2C%20gostaria%20de%20solicitar%20a%20exclus%C3%A3o%20permanente%20da%20minha%20conta%20e%20de%20todos%20os%20meus%20dados%20no%20aplicativo%20e-Pet.',
+            ).catch(() => Alert.alert('Erro', 'Não foi possível abrir o aplicativo de e-mail.')),
         },
-      ]
+      ],
     );
   };
 
@@ -102,42 +142,12 @@ export default function PrivacyScreen({ navigation }: Props) {
           text: 'Solicitar Download',
           onPress: () =>
             Linking.openURL(
-              'mailto:support.epet@gmail.com?subject=Solicita%C3%A7%C3%A3o%20de%20Download%20de%20Dados&body=Ol%C3%A1%2C%20gostaria%20de%20receber%20uma%20c%C3%B3pia%20de%20todos%20os%20meus%20dados%20cadastrados%20no%20aplicativo%20e-Pet.'
-            ).catch(() =>
-              Alert.alert('Erro', 'Não foi possível abrir o aplicativo de e-mail.')
-            ),
+              'mailto:support.epet@gmail.com?subject=Solicita%C3%A7%C3%A3o%20de%20Download%20de%20Dados&body=Ol%C3%A1%2C%20gostaria%20de%20receber%20uma%20c%C3%B3pia%20de%20todos%20os%20meus%20dados%20cadastrados%20no%20aplicativo%20e-Pet.',
+            ).catch(() => Alert.alert('Erro', 'Não foi possível abrir o aplicativo de e-mail.')),
         },
-      ]
+      ],
     );
   };
-
-  const PrivacyItem = ({
-    icon,
-    title,
-    description,
-    settingKey,
-  }: {
-    icon: keyof typeof Ionicons.glyphMap;
-    title: string;
-    description: string;
-    settingKey: keyof typeof settings;
-  }) => (
-    <View style={styles.settingItem}>
-      <View style={styles.settingIcon}>
-        <Ionicons name={icon} size={22} color={colors.primary} />
-      </View>
-      <View style={styles.settingContent}>
-        <Text style={styles.settingTitle}>{title}</Text>
-        <Text style={styles.settingDescription}>{description}</Text>
-      </View>
-      <Switch
-        value={settings[settingKey]}
-        onValueChange={() => toggleSetting(settingKey)}
-        trackColor={{ false: colors.gray300, true: colors.secondary }}
-        thumbColor={settings[settingKey] ? colors.primary : colors.gray500}
-      />
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -157,25 +167,29 @@ export default function PrivacyScreen({ navigation }: Props) {
             icon="globe-outline"
             title="Perfil Público"
             description="Permitir que outros vejam seu perfil"
-            settingKey="shareProfile"
+            value={settings.shareProfile}
+            onToggle={() => toggleSetting('shareProfile')}
           />
           <PrivacyItem
             icon="mail-outline"
             title="Mostrar E-mail"
             description="Exibir e-mail na carteira do pet"
-            settingKey="showEmail"
+            value={settings.showEmail}
+            onToggle={() => toggleSetting('showEmail')}
           />
           <PrivacyItem
             icon="call-outline"
             title="Mostrar Telefone"
             description="Exibir telefone na carteira do pet"
-            settingKey="showPhone"
+            value={settings.showPhone}
+            onToggle={() => toggleSetting('showPhone')}
           />
           <PrivacyItem
             icon="location-outline"
             title="Mostrar Endereço"
             description="Exibir endereço na carteira do pet"
-            settingKey="showAddress"
+            value={settings.showAddress}
+            onToggle={() => toggleSetting('showAddress')}
           />
         </View>
 
@@ -186,13 +200,15 @@ export default function PrivacyScreen({ navigation }: Props) {
             icon="analytics-outline"
             title="Análise de Uso"
             description="Ajude-nos a melhorar o app"
-            settingKey="analytics"
+            value={settings.analytics}
+            onToggle={() => toggleSetting('analytics')}
           />
           <PrivacyItem
             icon="sparkles-outline"
             title="Personalização"
             description="Experiência personalizada para você"
-            settingKey="personalization"
+            value={settings.personalization}
+            onToggle={() => toggleSetting('personalization')}
           />
         </View>
 
@@ -205,9 +221,7 @@ export default function PrivacyScreen({ navigation }: Props) {
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingTitle}>Baixar Meus Dados</Text>
-              <Text style={styles.settingDescription}>
-                Receba uma cópia de todos os seus dados
-              </Text>
+              <Text style={styles.settingDescription}>Receba uma cópia de todos os seus dados</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
           </TouchableOpacity>
@@ -218,9 +232,7 @@ export default function PrivacyScreen({ navigation }: Props) {
             </View>
             <View style={styles.settingContent}>
               <Text style={[styles.settingTitle, styles.dangerText]}>Excluir Meus Dados</Text>
-              <Text style={styles.settingDescription}>
-                Solicitar exclusão permanente da conta
-              </Text>
+              <Text style={styles.settingDescription}>Solicitar exclusão permanente da conta</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
           </TouchableOpacity>

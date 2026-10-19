@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PetCardScreen — exibe a carteira digital do pet e-Pet.
  *
  * Mostra foto, dados do pet e do tutor, QR Code e botões
@@ -15,8 +15,7 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Platform,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { Alert } from '../../lib/alert';
 import { LineChart } from 'react-native-gifted-charts';
@@ -24,24 +23,21 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useFocusEffect } from '@react-navigation/native';
-import QRCode from 'react-native-qrcode-svg';           // gerador de QR Code naívo
-import * as Clipboard from 'expo-clipboard';             // copia texto para a área de transferência
+import QRCode from 'react-native-qrcode-svg'; // gerador de QR Code naívo
+import * as Clipboard from 'expo-clipboard'; // copia texto para a área de transferência
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot'; // captura uma View como imagem
-import * as FileSystem from 'expo-file-system/legacy';   // manipulação de arquivos no cache
-import * as Sharing from 'expo-sharing';                // compartilhamento nativo de arquivos
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
-import { Pet } from '../../types/database.types';
 import { colors } from '../../constants/colors';
 import { DashboardStackParamList } from '../../types/navigation.types';
 import { lastPetKey } from './DashboardScreen';
 import { useAuth } from '../../contexts/AuthContext';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
+import { formatDisplayDate, calculateAgeFromDate, toDate } from '../../lib/petForm';
+import { getSpeciesLabel, getSpeciesIcon } from '../../lib/species';
+import { useShareCard } from '../../hooks/useShareCard';
 
 /** Largura útil do gráfico dentro do card (descontando paddings e o eixo Y). */
 const CHART_Y_AXIS_WIDTH = 44;
-const CHART_WIDTH = SCREEN_WIDTH - 20 * 2 - 16 * 2 - CHART_Y_AXIS_WIDTH;
 
 /** Converte DD/MM/AAAA → timestamp para ordenação cronológica */
 const parseDateBR = (dateStr: string): number => {
@@ -59,156 +55,49 @@ type Props = {
 };
 
 export default function PetCardScreen({ navigation, route }: Props) {
-  const { pet } = route.params;                    // dados do pet recebidos via navegação
+  const { pet } = route.params; // dados do pet recebidos via navegação
   const { user } = useAuth();
-  const qrRef = useRef<QRCode | null>(null);        // ref do componente QRCode (não usado diretamente)
+  const qrRef = useRef<QRCode | null>(null); // ref do componente QRCode (não usado diretamente)
   const cardRef = useRef<ViewShotRef>(null); // ref para a View que será capturada pelo ViewShot
-  const [sharing, setSharing] = useState(false);   // bloqueia o botão enquanto gera e compartilha a imagem
+  const { sharing, shareCard } = useShareCard(cardRef); // bloqueia o botão enquanto gera e compartilha a imagem
+  const { width } = useWindowDimensions();
+  const CHART_WIDTH = width - 20 * 2 - 16 * 2 - CHART_Y_AXIS_WIDTH;
   const [pesagens, setPesagens] = useState<{ peso: number; data: string }[]>([]);
 
   // Salva este pet como o último acessado para o acesso rápido da tela Início
   useEffect(() => {
     if (user) AsyncStorage.setItem(lastPetKey(user.uid), JSON.stringify(pet)).catch(() => {});
-  }, [pet.id, user?.uid]);
+  }, [pet, user]);
 
   // Busca os registros de peso sempre que a tela ganhar foco
-  useFocusEffect(useCallback(() => {
-    const fetchPesos = async () => {
-      try {
-        const q = query(
-          collection(firestore, 'pets', pet.id, 'weights'),
-          orderBy('created_at', 'asc'),
-        );
-        const snapshot = await getDocs(q);
-        setPesagens(snapshot.docs.map(d => {
-          const item = d.data();
-          return { peso: item.peso as number, data: item.data as string };
-        }));
-      } catch (_) {
-        // silently fail — gráfico simplesmente não aparece
-      }
-    };
-    fetchPesos();
-  }, [pet.id]));
-
-  /** Formata uma data ISO para exibição no padrão DD/MM/AAAA */
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Não informado';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
-  };
-
-  /** Calcula a idade do pet a partir da data de nascimento no formato AAAA-MM-DD */
-  const calculateAge = (dateString: string | null): string => {
-    if (!dateString) return '';
-    
-    const today = new Date();
-    const birth = new Date(dateString);
-    
-    let years = today.getFullYear() - birth.getFullYear();
-    let months = today.getMonth() - birth.getMonth();
-    let days = today.getDate() - birth.getDate();
-    
-    if (days < 0) {
-      months--;
-      const lastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-      days += lastMonth.getDate();
-    }
-    
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
-    
-    if (years > 0) {
-      return years === 1 ? '1 ano' : `${years} anos`;
-    } else if (months > 0) {
-      return months === 1 ? '1 mês' : `${months} meses`;
-    } else {
-      return days === 1 ? '1 dia' : `${days} dias`;
-    }
-  };
-
-  /** Retorna o rótulo legfível da espécie em português */
-  const getSpeciesLabel = (species: string) => {
-    switch (species) {
-      case 'dog': return 'Cachorro';
-      case 'cat': return 'Gato';
-      case 'bird': return 'Pássaro';
-      default: return 'Outro';
-    }
-  };
-
-  /** Retorna o nome do ícone Ionicons para a espécie do pet */
-  const getSpeciesIcon = (species: string): keyof typeof Ionicons.glyphMap => {
-    switch (species) {
-      case 'dog': return 'paw';
-      case 'cat': return 'paw';
-      case 'bird': return 'leaf';
-      default: return 'paw';
-    }
-  };
+  useFocusEffect(
+    useCallback(() => {
+      const fetchPesos = async () => {
+        try {
+          const q = query(
+            collection(firestore, 'pets', pet.id, 'weights'),
+            orderBy('created_at', 'asc'),
+          );
+          const snapshot = await getDocs(q);
+          setPesagens(
+            snapshot.docs.map((d) => {
+              const item = d.data();
+              return { peso: item.peso as number, data: item.data as string };
+            }),
+          );
+        } catch {
+          // silently fail — gráfico simplesmente não aparece
+        }
+      };
+      fetchPesos();
+    }, [pet.id]),
+  );
 
   /**
    * handleShare — captura a carteira como imagem PNG e abre o menu de compartilhamento.
-   *
-   * Fluxo:
-   * 1. Verifica se o compartilhamento está disponível no dispositivo.
-   * 2. Captura a View referenciada por cardRef usando ViewShot.
-   * 3. Move o arquivo para o cache do app com um nome único.
-   * 4. Chama expo-sharing para abrir o menu nativo de compartilhamento.
+   * Implementação compartilhada em useShareCard.
    */
-  const handleShare = async () => {
-    try {
-      setSharing(true);
-      
-      if (!cardRef.current) {
-        Alert.alert('Erro', 'Não foi possível gerar o documento.');
-        setSharing(false);
-        return;
-      }
-
-      // Verifica se o dispositivo pode compartilhar
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (!isAvailable) {
-        Alert.alert('Erro', 'Compartilhamento não disponível neste dispositivo.');
-        setSharing(false);
-        return;
-      }
-
-      // Captura a view como imagem
-      const uri = await cardRef.current?.capture?.();
-      
-      if (!uri) {
-        Alert.alert('Erro', 'Não foi possível capturar a imagem.');
-        setSharing(false);
-        return;
-      }
-      
-      // Cria um nome único para o arquivo
-      const fileName = `e-Pet_${pet.name.replace(/\s+/g, '_')}_${Date.now()}.png`;
-      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
-      
-      // Move a imagem para o diretório de cache
-      await FileSystem.moveAsync({
-        from: uri,
-        to: fileUri,
-      });
-
-      // Compartilha a imagem usando expo-sharing
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'image/png',
-        dialogTitle: `Carteira do Pet - ${pet.name}`,
-        UTI: 'public.png',
-      });
-
-      setSharing(false);
-    } catch (error) {
-      console.error(error);
-      setSharing(false);
-      Alert.alert('Erro', 'Não foi possível compartilhar o documento.');
-    }
-  };
+  const handleShare = () => shareCard(pet.name);
 
   /** Copia o ID do pet para a área de transferência e exibe confirmação */
   const copyPetId = async () => {
@@ -226,7 +115,10 @@ export default function PetCardScreen({ navigation, route }: Props) {
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Carteira do Pet</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('EditPet', { pet })} style={styles.headerButton}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('EditPet', { pet })}
+          style={styles.headerButton}
+        >
           <Ionicons name="create-outline" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -258,7 +150,7 @@ export default function PetCardScreen({ navigation, route }: Props) {
                   </View>
                 )}
                 <Text style={styles.petName}>{pet.name}</Text>
-                
+
                 <TouchableOpacity style={styles.petIdBadge} onPress={copyPetId} activeOpacity={0.7}>
                   <Ionicons name="copy-outline" size={14} color={colors.primary} />
                   <Text style={styles.petIdText}>{pet.pet_id}</Text>
@@ -282,11 +174,15 @@ export default function PetCardScreen({ navigation, route }: Props) {
               {/* Informações do Pet */}
               <View style={styles.infoSection}>
                 <Text style={styles.sectionTitle}>Informações do Pet</Text>
-                
+
                 <View style={styles.infoRow}>
                   <View style={styles.infoItem}>
                     <View style={styles.infoIcon}>
-                      <Ionicons name={getSpeciesIcon(pet.species)} size={18} color={colors.primary} />
+                      <Ionicons
+                        name={getSpeciesIcon(pet.species)}
+                        size={18}
+                        color={colors.primary}
+                      />
                     </View>
                     <View>
                       <Text style={styles.infoLabel}>Espécie</Text>
@@ -311,9 +207,11 @@ export default function PetCardScreen({ navigation, route }: Props) {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.infoLabel}>Nascimento</Text>
-                      <Text style={styles.infoValue}>{formatDate(pet.birth_date)}</Text>
+                      <Text style={styles.infoValue}>{formatDisplayDate(pet.birth_date)}</Text>
                       {pet.birth_date && (
-                        <Text style={styles.ageText}>{calculateAge(pet.birth_date)}</Text>
+                        <Text style={styles.ageText}>
+                          {calculateAgeFromDate(toDate(pet.birth_date))}
+                        </Text>
                       )}
                     </View>
                   </View>
@@ -325,7 +223,7 @@ export default function PetCardScreen({ navigation, route }: Props) {
               {/* Informações do Tutor */}
               <View style={styles.infoSection}>
                 <Text style={styles.sectionTitle}>Dados do Tutor</Text>
-                
+
                 <View style={styles.contactItem}>
                   <View style={styles.contactIcon}>
                     <Ionicons name="person" size={18} color="#10B981" />
@@ -384,16 +282,14 @@ export default function PetCardScreen({ navigation, route }: Props) {
 
             {/* Footer do Documento */}
             <View style={styles.documentFooter}>
-              <Text style={styles.documentFooterText}>
-                Documento gerado pelo e-Pet
-              </Text>
+              <Text style={styles.documentFooterText}>Documento gerado pelo e-Pet</Text>
             </View>
           </View>
         </ViewShot>
 
         {/* Botão de Compartilhar */}
-        <TouchableOpacity 
-          style={[styles.shareButton, sharing && styles.shareButtonDisabled]} 
+        <TouchableOpacity
+          style={[styles.shareButton, sharing && styles.shareButtonDisabled]}
           onPress={handleShare}
           disabled={sharing}
         >
@@ -453,49 +349,53 @@ export default function PetCardScreen({ navigation, route }: Props) {
           </TouchableOpacity>
 
           {/* Gráfico de evolução de peso dentro do mesmo card */}
-          {pesagens.length > 0 && (() => {
-            // Ordena cronologicamente pelo campo `data` (DD/MM/AAAA), independente
-            // da ordem de inserção — resolve o bug de datas fora de sequência
-            const sorted = [...pesagens].sort((a, b) => parseDateBR(a.data) - parseDateBR(b.data));
-            const dados = sorted.slice(-6);
-            // Um único ponto não desenha linha: duplica o valor para formar o par
-            const chartData = dados.length === 1
-              ? [
-                  { value: dados[0].peso, label: dados[0].data.slice(0, 5) },
-                  { value: dados[0].peso, label: '' },
-                ]
-              : dados.map((p) => ({ value: p.peso, label: p.data.slice(0, 5) }));
-            const ultimoPeso = sorted[sorted.length - 1];
-            return (
-              <>
-                <View style={styles.actionDivider} />
-                <View style={styles.chartInCard}>
-                  <View style={styles.weightCardHeader}>
-                    <Text style={styles.weightCardTitle}>Evolução de Peso</Text>
-                    <Text style={styles.weightCardCurrent}>{ultimoPeso.peso.toFixed(1)} kg</Text>
+          {pesagens.length > 0 &&
+            (() => {
+              // Ordena cronologicamente pelo campo `data` (DD/MM/AAAA), independente
+              // da ordem de inserção — resolve o bug de datas fora de sequência
+              const sorted = [...pesagens].sort(
+                (a, b) => parseDateBR(a.data) - parseDateBR(b.data),
+              );
+              const dados = sorted.slice(-6);
+              // Um único ponto não desenha linha: duplica o valor para formar o par
+              const chartData =
+                dados.length === 1
+                  ? [
+                      { value: dados[0].peso, label: dados[0].data.slice(0, 5) },
+                      { value: dados[0].peso, label: '' },
+                    ]
+                  : dados.map((p) => ({ value: p.peso, label: p.data.slice(0, 5) }));
+              const ultimoPeso = sorted[sorted.length - 1];
+              return (
+                <>
+                  <View style={styles.actionDivider} />
+                  <View style={styles.chartInCard}>
+                    <View style={styles.weightCardHeader}>
+                      <Text style={styles.weightCardTitle}>Evolução de Peso</Text>
+                      <Text style={styles.weightCardCurrent}>{ultimoPeso.peso.toFixed(1)} kg</Text>
+                    </View>
+                    <LineChart
+                      data={chartData}
+                      width={CHART_WIDTH}
+                      height={170}
+                      yAxisLabelWidth={CHART_Y_AXIS_WIDTH}
+                      yAxisLabelSuffix=" kg"
+                      color={colors.primary}
+                      thickness={2.5}
+                      dataPointsColor={colors.primary}
+                      dataPointsRadius={5}
+                      curved={chartData.length > 2}
+                      noOfSections={4}
+                      rulesColor={colors.gray200}
+                      yAxisColor="transparent"
+                      xAxisColor={colors.gray300}
+                      yAxisTextStyle={{ color: colors.gray600, fontSize: 11 }}
+                      xAxisLabelTextStyle={{ color: colors.gray500, fontSize: 10 }}
+                    />
                   </View>
-                  <LineChart
-                    data={chartData}
-                    width={CHART_WIDTH}
-                    height={170}
-                    yAxisLabelWidth={CHART_Y_AXIS_WIDTH}
-                    yAxisLabelSuffix=" kg"
-                    color={colors.primary}
-                    thickness={2.5}
-                    dataPointsColor={colors.primary}
-                    dataPointsRadius={5}
-                    curved={chartData.length > 2}
-                    noOfSections={4}
-                    rulesColor={colors.gray200}
-                    yAxisColor="transparent"
-                    xAxisColor={colors.gray300}
-                    yAxisTextStyle={{ color: colors.gray600, fontSize: 11 }}
-                    xAxisLabelTextStyle={{ color: colors.gray500, fontSize: 10 }}
-                  />
-                </View>
-              </>
-            );
-          })()}
+                </>
+              );
+            })()}
         </View>
 
         <View style={styles.bottomPadding} />

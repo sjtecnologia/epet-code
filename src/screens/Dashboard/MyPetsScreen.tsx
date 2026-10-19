@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MyPetsScreen — lista todos os pets do usuário.
  *
  * Exibe em sequência:
@@ -32,6 +32,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Pet, FourYouPet } from '../../types/database.types';
 import { MyPetsStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
+import { getSpeciesIcon } from '../../lib/species';
 
 type Props = {
   navigation: NativeStackNavigationProp<MyPetsStackParamList>;
@@ -45,39 +46,33 @@ export default function MyPetsScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  const fetchFourYouPets = async () => {
+  const fetchFourYouPets = useCallback(async () => {
     if (!user) return;
     try {
       const firebaseUid = firebaseAuth.currentUser?.uid;
       if (!firebaseUid) return;
-      const petsQuery = query(
-        collection(firestore, 'pet'),
-        where('user_id', '==', firebaseUid)
-      );
+      const petsQuery = query(collection(firestore, 'pet'), where('user_id', '==', firebaseUid));
       const snapshot = await getDocs(petsQuery);
       const fetched: FourYouPet[] = snapshot.docs
-        .filter(doc => {
+        .filter((doc) => {
           const d = doc.data();
           // Exclui pets com epet_id (mirrors de pets e-Pet, incluindo orphans)
           return !d.deleted && !d.epet_id;
         })
-        .map(doc => ({ id: doc.id, ...doc.data() } as FourYouPet));
+        .map((doc) => ({ id: doc.id, ...doc.data() }) as FourYouPet);
       setFourYouPets(fetched);
     } catch (err) {
       console.error('Erro ao buscar pets do 4YouPet:', err);
     }
-  };
+  }, [user]);
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     if (!user) return;
     try {
-      const petsQuery = query(
-        collection(firestore, 'pets'),
-        where('user_id', '==', user.uid)
-      );
+      const petsQuery = query(collection(firestore, 'pets'), where('user_id', '==', user.uid));
       const petsSnapshot = await getDocs(petsQuery);
       const petList: Pet[] = petsSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as Pet))
+        .map((doc) => ({ id: doc.id, ...doc.data() }) as Pet)
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
       setPets(petList);
@@ -85,14 +80,16 @@ export default function MyPetsScreen({ navigation }: Props) {
       if (petList.length > 0) {
         const today = new Date().toISOString().split('T')[0];
         const counts: Record<string, number> = {};
-        await Promise.all(petList.map(async (p) => {
-          const vaccinesQuery = query(
-            collection(firestore, 'pets', p.id, 'vaccines'),
-            where('next_due_date', '<', today)
-          );
-          const vacSnapshot = await getDocs(vaccinesQuery);
-          if (!vacSnapshot.empty) counts[p.id] = vacSnapshot.size;
-        }));
+        await Promise.all(
+          petList.map(async (p) => {
+            const vaccinesQuery = query(
+              collection(firestore, 'pets', p.id, 'vaccines'),
+              where('next_due_date', '<', today),
+            );
+            const vacSnapshot = await getDocs(vaccinesQuery);
+            if (!vacSnapshot.empty) counts[p.id] = vacSnapshot.size;
+          }),
+        );
         setOverdueByPet(counts);
       } else {
         setOverdueByPet({});
@@ -105,12 +102,12 @@ export default function MyPetsScreen({ navigation }: Props) {
     }
 
     await fetchFourYouPets();
-  };
+  }, [user, fetchFourYouPets]);
 
   useFocusEffect(
     useCallback(() => {
       fetchAll();
-    }, [user])
+    }, [fetchAll]),
   );
 
   const onRefresh = async () => {
@@ -119,21 +116,16 @@ export default function MyPetsScreen({ navigation }: Props) {
     setRefreshing(false);
   };
 
-  const getSpeciesIcon = (species: string): keyof typeof Ionicons.glyphMap => {
-    switch (species) {
-      case 'dog': return 'paw';
-      case 'cat': return 'paw';
-      case 'bird': return 'leaf';
-      default: return 'paw';
-    }
-  };
-
   const getSpeciesColor = (species: string) => {
     switch (species) {
-      case 'dog': return '#F59E0B';
-      case 'cat': return colors.primary;
-      case 'bird': return '#10B981';
-      default: return colors.primary;
+      case 'dog':
+        return '#F59E0B';
+      case 'cat':
+        return colors.primary;
+      case 'bird':
+        return '#10B981';
+      default:
+        return colors.primary;
     }
   };
 
@@ -146,15 +138,15 @@ export default function MyPetsScreen({ navigation }: Props) {
         activeOpacity={0.7}
       >
         {overdueCount > 0 && (
-          <View style={[
-            styles.overdueBanner,
-            Platform.OS === 'ios' ? { borderTopLeftRadius: 24, borderTopRightRadius: 24 } : null,
-          ]}>
+          <View
+            style={[
+              styles.overdueBanner,
+              Platform.OS === 'ios' ? { borderTopLeftRadius: 24, borderTopRightRadius: 24 } : null,
+            ]}
+          >
             <Ionicons name="alert-circle" size={15} color="#fff" />
             <Text style={styles.overdueBannerText}>
-              {overdueCount === 1
-                ? '1 vacina vencida'
-                : `${overdueCount} vacinas vencidas`}
+              {overdueCount === 1 ? '1 vacina vencida' : `${overdueCount} vacinas vencidas`}
             </Text>
             <Ionicons name="medical" size={14} color="rgba(255,255,255,0.8)" />
           </View>
@@ -163,8 +155,17 @@ export default function MyPetsScreen({ navigation }: Props) {
           {item.photo_url ? (
             <Image source={{ uri: item.photo_url }} style={styles.petPhoto} />
           ) : (
-            <View style={[styles.petPhotoPlaceholder, { backgroundColor: getSpeciesColor(item.species) + '20' }]}>
-              <Ionicons name={getSpeciesIcon(item.species)} size={28} color={getSpeciesColor(item.species)} />
+            <View
+              style={[
+                styles.petPhotoPlaceholder,
+                { backgroundColor: getSpeciesColor(item.species) + '20' },
+              ]}
+            >
+              <Ionicons
+                name={getSpeciesIcon(item.species)}
+                size={28}
+                color={getSpeciesColor(item.species)}
+              />
             </View>
           )}
           <View style={styles.petInfo}>
@@ -187,13 +188,8 @@ export default function MyPetsScreen({ navigation }: Props) {
         <Ionicons name="paw" size={64} color={colors.gray400} />
       </View>
       <Text style={styles.emptyTitle}>Nenhum pet cadastrado</Text>
-      <Text style={styles.emptyText}>
-        Toque no botão abaixo para adicionar seu primeiro pet
-      </Text>
-      <TouchableOpacity
-        style={styles.emptyButton}
-        onPress={() => navigation.navigate('NewPet')}
-      >
+      <Text style={styles.emptyText}>Toque no botão abaixo para adicionar seu primeiro pet</Text>
+      <TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('NewPet')}>
         <Ionicons name="add" size={20} color="#fff" />
         <Text style={styles.emptyButtonText}>Adicionar Pet</Text>
       </TouchableOpacity>
@@ -217,9 +213,7 @@ export default function MyPetsScreen({ navigation }: Props) {
           renderItem={renderPetCard}
           keyExtractor={(item) => item.id}
           contentContainerStyle={
-            pets.length === 0 && fourYouPets.length === 0
-              ? styles.emptyContainer
-              : styles.list
+            pets.length === 0 && fourYouPets.length === 0 ? styles.emptyContainer : styles.list
           }
           ListEmptyComponent={!loading && fourYouPets.length === 0 ? renderEmptyState : null}
           showsVerticalScrollIndicator={false}
@@ -244,7 +238,9 @@ export default function MyPetsScreen({ navigation }: Props) {
                       {item.images && item.images.length > 0 ? (
                         <Image source={{ uri: item.images[0] }} style={styles.petPhoto} />
                       ) : (
-                        <View style={[styles.petPhotoPlaceholder, { backgroundColor: '#ff6b3520' }]}>
+                        <View
+                          style={[styles.petPhotoPlaceholder, { backgroundColor: '#ff6b3520' }]}
+                        >
                           <Ionicons name="paw" size={28} color="#ff6b35" />
                         </View>
                       )}
@@ -254,8 +250,8 @@ export default function MyPetsScreen({ navigation }: Props) {
                           <Ionicons name="medical-outline" size={14} color="#ff6b35" />
                           <Text style={[styles.petId, { color: '#ff6b35' }]}>
                             {(item.vacinas || []).reduce(
-                              (acc, v) => acc + (v.aplic?.filter(a => a.aplicated).length || 0),
-                              0
+                              (acc, v) => acc + (v.aplic?.filter((a) => a.aplicated).length || 0),
+                              0,
                             )}{' '}
                             vacinas aplicadas
                           </Text>
@@ -337,7 +333,7 @@ const styles = StyleSheet.create({
   list: {
     padding: 24,
     paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 110 : 24,
+    paddingBottom: 24,
   },
   emptyContainer: {
     flex: 1,

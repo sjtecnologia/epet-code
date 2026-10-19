@@ -6,14 +6,7 @@
  * multilinha (área de observações).
  */
 import React from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TextInputProps,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
+import { View, Text, TextInput, TextInputProps, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
 import { petFormStyles as styles } from './petFormStyles';

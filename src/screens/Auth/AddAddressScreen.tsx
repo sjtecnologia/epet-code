@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AddAddressScreen — tela de onboarding de endereço, exibida após o cadastro.
  *
  * Permite ao usuário cadastrar seu primeiro endereço para facilitar o
@@ -36,6 +36,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { RootStackParamList } from '../../types/navigation.types';
+import { fetchAddressByCep, viaCepMessages } from '../../lib/viacep';
 import { colors } from '../../constants/colors';
 
 type Props = {
@@ -49,36 +50,25 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
   const [street, setStreet] = useState('');
   const [number, setNumber] = useState('');
   const [complement, setComplement] = useState('');
-  const [loading, setLoading] = useState(false);    // Indicador do botão Salvar
+  const [loading, setLoading] = useState(false); // Indicador do botão Salvar
   const [loadingCep, setLoadingCep] = useState(false); // Indicador do botão de busca de CEP
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   /**
    * searchCep — consulta o CEP na API ViaCEP e preenche o campo de rua automaticamente.
-   * Remove caracteres não numéricos do CEP antes de enviar a requisição.
    */
   const searchCep = async () => {
-    if (cep.replace(/\D/g, '').length !== 8) {
-      Alert.alert('Erro', 'CEP inválido. Digite 8 dígitos.');
+    setLoadingCep(true);
+    const result = await fetchAddressByCep(cep);
+    setLoadingCep(false);
+
+    if (!result.ok) {
+      const { title, message } = viaCepMessages[result.error];
+      Alert.alert(title, message);
       return;
     }
-
-    setLoadingCep(true);
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cep.replace(/\D/g, '')}/json/`);
-      const data = await response.json();
-
-      if (data.erro) {
-        Alert.alert('Erro', 'CEP não encontrado');
-      } else {
-        // Preenche automaticamente o campo de rua com o logradouro retornado
-        setStreet(data.logradouro || '');
-      }
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível buscar o CEP');
-    } finally {
-      setLoadingCep(false);
-    }
+    // Preenche automaticamente o campo de rua com o logradouro retornado
+    setStreet(result.logradouro);
   };
 
   /**
@@ -116,24 +106,20 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
   };
 
   const handleSkip = async () => {
-    Alert.alert(
-      'Pular cadastro?',
-      'Você pode adicionar seu endereço depois no perfil.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Pular', 
-          onPress: async () => {
-            if (user) {
-              await AsyncStorage.setItem(`address_onboarding_skipped_${user.uid}`, 'true');
-            }
-            if (onComplete) {
-              onComplete();
-            }
-          } 
+    Alert.alert('Pular cadastro?', 'Você pode adicionar seu endereço depois no perfil.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Pular',
+        onPress: async () => {
+          if (user) {
+            await AsyncStorage.setItem(`address_onboarding_skipped_${user.uid}`, 'true');
+          }
+          if (onComplete) {
+            onComplete();
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
@@ -144,8 +130,8 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Image 
-              source={require('../../../logoepet/logo.png')} 
+            <Image
+              source={require('../../../logoepet/logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -157,7 +143,12 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
         <View style={styles.card}>
           <View style={styles.cepContainer}>
             <View style={[styles.inputContainer, { flex: 1 }]}>
-              <Ionicons name="map-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+              <Ionicons
+                name="map-outline"
+                size={20}
+                color={colors.primary}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
                 placeholder="CEP"
@@ -168,11 +159,7 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
                 maxLength={9}
               />
             </View>
-            <TouchableOpacity
-              style={styles.searchButton}
-              onPress={searchCep}
-              disabled={loadingCep}
-            >
+            <TouchableOpacity style={styles.searchButton} onPress={searchCep} disabled={loadingCep}>
               {loadingCep ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
@@ -182,7 +169,12 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="location-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+            <Ionicons
+              name="location-outline"
+              size={20}
+              color={colors.primary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Rua / Logradouro"
@@ -194,7 +186,12 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
 
           <View style={styles.rowInputs}>
             <View style={[styles.inputContainer, { flex: 1 }]}>
-              <Ionicons name="home-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+              <Ionicons
+                name="home-outline"
+                size={20}
+                color={colors.primary}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
                 placeholder="Número"
@@ -206,7 +203,12 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
             </View>
 
             <View style={[styles.inputContainer, { flex: 1.5 }]}>
-              <Ionicons name="business-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+              <Ionicons
+                name="business-outline"
+                size={20}
+                color={colors.primary}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
                 placeholder="Complemento"
@@ -249,7 +251,12 @@ export default function AddAddressScreen({ navigation, onComplete }: Props) {
       >
         <View style={styles.successOverlay}>
           <View style={styles.successModalCard}>
-            <Ionicons name="checkmark-circle" size={64} color="#10B981" style={{ marginBottom: 12 }} />
+            <Ionicons
+              name="checkmark-circle"
+              size={64}
+              color="#10B981"
+              style={{ marginBottom: 12 }}
+            />
             <Text style={styles.successTitle}>Cadastro concluído!</Text>
             <Text style={styles.successDescription}>
               Seu endereço foi salvo com sucesso. Vamos começar?

@@ -1,11 +1,11 @@
-﻿/**
+/**
  * ProfileScreen — tela principal do perfil do usuário.
  *
  * Exibe avatar, nome, e-mail, contagem de pets cadastrados
  * e um menu de navegação para as configurações da conta.
  * Recarrega os dados sempre que a tela entra em foco.
  */
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -38,12 +38,54 @@ type ProfileMenuItem = {
 };
 
 const profileMenuItems: ProfileMenuItem[] = [
-  { icon: 'person-outline', label: 'Editar Perfil', sub: 'Alterar nome e informações', route: 'EditProfile', color: colors.primary, bg: colors.tertiary },
-  { icon: 'location-outline', label: 'Meus Endereços', sub: 'Gerenciar endereços salvos', route: 'ManageAddresses', color: colors.primary, bg: colors.tertiary },
-  { icon: 'notifications-outline', label: 'Notificações', sub: 'Configurar alertas', route: 'Notifications', color: colors.primary, bg: colors.tertiary },
-  { icon: 'shield-outline', label: 'Privacidade', sub: 'Controle seus dados', route: 'Privacy', color: colors.primary, bg: colors.tertiary },
-  { icon: 'help-circle-outline', label: 'Ajuda', sub: 'Suporte e FAQ', route: 'Help', color: colors.primary, bg: colors.tertiary },
-  { icon: 'link', label: 'Vincular 4YouPet', sub: 'Importar pets e vacinas do 4YouPet', route: 'Link4YouPet', color: '#ff6b35', bg: '#fff3e0' },
+  {
+    icon: 'person-outline',
+    label: 'Editar Perfil',
+    sub: 'Alterar nome e informações',
+    route: 'EditProfile',
+    color: colors.primary,
+    bg: colors.tertiary,
+  },
+  {
+    icon: 'location-outline',
+    label: 'Meus Endereços',
+    sub: 'Gerenciar endereços salvos',
+    route: 'ManageAddresses',
+    color: colors.primary,
+    bg: colors.tertiary,
+  },
+  {
+    icon: 'notifications-outline',
+    label: 'Notificações',
+    sub: 'Configurar alertas',
+    route: 'Notifications',
+    color: colors.primary,
+    bg: colors.tertiary,
+  },
+  {
+    icon: 'shield-outline',
+    label: 'Privacidade',
+    sub: 'Controle seus dados',
+    route: 'Privacy',
+    color: colors.primary,
+    bg: colors.tertiary,
+  },
+  {
+    icon: 'help-circle-outline',
+    label: 'Ajuda',
+    sub: 'Suporte e FAQ',
+    route: 'Help',
+    color: colors.primary,
+    bg: colors.tertiary,
+  },
+  {
+    icon: 'link',
+    label: 'Vincular 4YouPet',
+    sub: 'Importar pets e vacinas do 4YouPet',
+    route: 'Link4YouPet',
+    color: '#ff6b35',
+    bg: '#fff3e0',
+  },
 ];
 
 export default function ProfileScreen() {
@@ -58,16 +100,8 @@ export default function ProfileScreen() {
   });
   const [petsCount, setPetsCount] = useState(0); // total de pets e-Pet do usuário
 
-  // Recarrega perfil e contagem toda vez que a tela ganha foco
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchProfile();
-      fetchPetsCount();
-    }, [])
-  );
-
   /** Busca nome e avatar do usuário no Firestore */
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -83,10 +117,10 @@ export default function ProfileScreen() {
     } catch (err) {
       console.error('Erro ao buscar perfil:', err);
     }
-  };
+  }, [user]);
 
   /** Conta quantos pets e-Pet o usuário possui */
-  const fetchPetsCount = async () => {
+  const fetchPetsCount = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -96,7 +130,15 @@ export default function ProfileScreen() {
     } catch (err) {
       console.error('Erro ao contar pets:', err);
     }
-  };
+  }, [user]);
+
+  // Recarrega perfil e contagem toda vez que a tela ganha foco
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchProfile();
+      fetchPetsCount();
+    }, [fetchProfile, fetchPetsCount]),
+  );
 
   /** Exibe confirmação antes de encerrar a sessão */
   const handleSignOut = () => {
@@ -182,34 +224,79 @@ export default function ProfileScreen() {
         ) : (
           /* Android: lista original */
           <View style={styles.menuSection}>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('EditProfile')}>
-              <View style={styles.menuIconContainer}><Ionicons name="person-outline" size={22} color={colors.primary} /></View>
-              <View style={styles.menuContent}><Text style={styles.menuText}>Editar Perfil</Text><Text style={styles.menuSubtext}>Alterar nome e informações</Text></View>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('EditProfile')}
+            >
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="person-outline" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuText}>Editar Perfil</Text>
+                <Text style={styles.menuSubtext}>Alterar nome e informações</Text>
+              </View>
               <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ManageAddresses')}>
-              <View style={styles.menuIconContainer}><Ionicons name="location-outline" size={22} color={colors.primary} /></View>
-              <View style={styles.menuContent}><Text style={styles.menuText}>Meus Endereços</Text><Text style={styles.menuSubtext}>Gerenciar endereços salvos</Text></View>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('ManageAddresses')}
+            >
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="location-outline" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuText}>Meus Endereços</Text>
+                <Text style={styles.menuSubtext}>Gerenciar endereços salvos</Text>
+              </View>
               <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Notifications')}>
-              <View style={styles.menuIconContainer}><Ionicons name="notifications-outline" size={22} color={colors.primary} /></View>
-              <View style={styles.menuContent}><Text style={styles.menuText}>Notificações</Text><Text style={styles.menuSubtext}>Configurar alertas</Text></View>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="notifications-outline" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuText}>Notificações</Text>
+                <Text style={styles.menuSubtext}>Configurar alertas</Text>
+              </View>
               <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Privacy')}>
-              <View style={styles.menuIconContainer}><Ionicons name="shield-outline" size={22} color={colors.primary} /></View>
-              <View style={styles.menuContent}><Text style={styles.menuText}>Privacidade</Text><Text style={styles.menuSubtext}>Controle seus dados</Text></View>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('Privacy')}
+            >
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="shield-outline" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuText}>Privacidade</Text>
+                <Text style={styles.menuSubtext}>Controle seus dados</Text>
+              </View>
               <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Help')}>
-              <View style={styles.menuIconContainer}><Ionicons name="help-circle-outline" size={22} color={colors.primary} /></View>
-              <View style={styles.menuContent}><Text style={styles.menuText}>Ajuda</Text><Text style={styles.menuSubtext}>Suporte e FAQ</Text></View>
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="help-circle-outline" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuText}>Ajuda</Text>
+                <Text style={styles.menuSubtext}>Suporte e FAQ</Text>
+              </View>
               <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Link4YouPet')}>
-              <View style={[styles.menuIconContainer, { backgroundColor: '#fff3e0' }]}><Ionicons name="link" size={22} color="#ff6b35" /></View>
-              <View style={styles.menuContent}><Text style={styles.menuText}>Vincular 4YouPet</Text><Text style={styles.menuSubtext}>Importar pets e vacinas do 4YouPet</Text></View>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('Link4YouPet')}
+            >
+              <View style={[styles.menuIconContainer, { backgroundColor: '#fff3e0' }]}>
+                <Ionicons name="link" size={22} color="#ff6b35" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuText}>Vincular 4YouPet</Text>
+                <Text style={styles.menuSubtext}>Importar pets e vacinas do 4YouPet</Text>
+              </View>
               <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
             </TouchableOpacity>
           </View>

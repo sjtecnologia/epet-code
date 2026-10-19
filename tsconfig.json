@@ -4,29 +4,20 @@
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@/*": [
-        "src/*"
-      ]
+      "@/*": ["src/*"]
     },
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "jsx": "react-native",
-    "lib": [
-      "ES2020"
-    ],
+    "lib": ["ES2020"],
     "moduleResolution": "bundler",
     "noEmit": true,
-    "types": [
-      "jest"
-    ],
+    "types": ["jest"],
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "target": "ESNext"
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ],
+  "include": ["**/*.ts", "**/*.tsx"],
   "extends": "expo/tsconfig.base"
 }

@@ -5,19 +5,8 @@
  *   import { Alert } from '../../lib/alert';
  *   Alert.alert('Título', 'Mensagem', [{ text: 'OK' }]);
  */
-import React, {
-  forwardRef,
-  useImperativeHandle,
-  useState,
-} from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Pressable,
-} from 'react-native';
+import React, { forwardRef, useImperativeHandle, useState } from 'react';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/colors';
 
@@ -42,14 +31,28 @@ function resolveIcon(title: string): { name: keyof typeof Ionicons.glyphMap; col
   const t = title.toLowerCase();
   if (t.includes('erro') || t.includes('error') || t.includes('inválid') || t.includes('falha'))
     return { name: 'close-circle', color: colors.error };
-  if (t.includes('sucesso') || t.includes('copiado') || t.includes('salvo') || t.includes('concluí'))
+  if (
+    t.includes('sucesso') ||
+    t.includes('copiado') ||
+    t.includes('salvo') ||
+    t.includes('concluí')
+  )
     return { name: 'checkmark-circle', color: colors.primary };
-  if (t.includes('atenção') || t.includes('aviso') || t.includes('permissão') || t.includes('cuidado'))
+  if (
+    t.includes('atenção') ||
+    t.includes('aviso') ||
+    t.includes('permissão') ||
+    t.includes('cuidado')
+  )
     return { name: 'warning', color: colors.warning };
-  if (t.includes('excluir') || t.includes('remover') || t.includes('deletar') || t.includes('apagar'))
+  if (
+    t.includes('excluir') ||
+    t.includes('remover') ||
+    t.includes('deletar') ||
+    t.includes('apagar')
+  )
     return { name: 'trash', color: colors.error };
-  if (t.includes('sair') || t.includes('logout'))
-    return { name: 'log-out', color: colors.error };
+  if (t.includes('sair') || t.includes('logout')) return { name: 'log-out', color: colors.error };
   return { name: 'information-circle', color: colors.primary };
 }
 
@@ -93,9 +96,7 @@ const CustomAlertComponent = forwardRef<CustomAlertRef>((_, ref) => {
           <Text style={styles.title}>{config.title}</Text>
 
           {/* Mensagem */}
-          {!!config.message && (
-            <Text style={styles.message}>{config.message}</Text>
-          )}
+          {!!config.message && <Text style={styles.message}>{config.message}</Text>}
 
           {/* Divisor */}
           <View style={styles.divider} />
@@ -108,9 +109,7 @@ const CustomAlertComponent = forwardRef<CustomAlertRef>((_, ref) => {
               const isLast = i === buttons.length - 1;
               return (
                 <React.Fragment key={i}>
-                  {i > 0 && buttons.length <= 2 && (
-                    <View style={styles.btnDividerV} />
-                  )}
+                  {i > 0 && buttons.length <= 2 && <View style={styles.btnDividerV} />}
                   <TouchableOpacity
                     style={[
                       styles.btn,
@@ -141,6 +140,8 @@ const CustomAlertComponent = forwardRef<CustomAlertRef>((_, ref) => {
     </Modal>
   );
 });
+
+CustomAlertComponent.displayName = 'CustomAlert';
 
 export default CustomAlertComponent;
 

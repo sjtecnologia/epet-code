@@ -1,4 +1,4 @@
-﻿/**
+/**
  * RegisterScreen — tela de cadastro de novo usuário.
  *
  * Coleta: nome completo, telefone, e-mail, senha e confirmação de senha.
@@ -41,8 +41,8 @@ export default function RegisterScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);              // Indicador de carregamento durante o cadastro
-  const [showPassword, setShowPassword] = useState(false);    // Alterna visibilidade da senha
+  const [loading, setLoading] = useState(false); // Indicador de carregamento durante o cadastro
+  const [showPassword, setShowPassword] = useState(false); // Alterna visibilidade da senha
   const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Alterna visibilidade da confirmação
   const { signUp } = useAuth();
 
@@ -51,8 +51,7 @@ export default function RegisterScreen({ navigation }: Props) {
    * O signUp também cria a conta no Firebase e o documento no Firestore.
    */
   /** Valida formato básico de e-mail */
-  const isValidEmail = (value: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 
   const handleRegister = async () => {
     if (!name.trim() || !phone.trim() || !email.trim() || !password || !confirmPassword) {
@@ -91,13 +90,14 @@ export default function RegisterScreen({ navigation }: Props) {
 
     if (result.error) {
       const code = (result.error as FirebaseLikeError).code;
-      const msg = code === 'auth/email-already-in-use'
-        ? 'Este e-mail já está em uso.'
-        : code === 'auth/invalid-email'
-        ? 'Endereço de e-mail inválido.'
-        : code === 'auth/network-request-failed'
-        ? 'Sem conexão com a internet. Tente novamente.'
-        : 'Não foi possível criar a conta. Tente novamente.';
+      const msg =
+        code === 'auth/email-already-in-use'
+          ? 'Este e-mail já está em uso.'
+          : code === 'auth/invalid-email'
+            ? 'Endereço de e-mail inválido.'
+            : code === 'auth/network-request-failed'
+              ? 'Sem conexão com a internet. Tente novamente.'
+              : 'Não foi possível criar a conta. Tente novamente.';
       Alert.alert('Erro', msg);
     }
     // Se sem erro, o onAuthStateChanged detecta o user e navega automaticamente
@@ -115,8 +115,8 @@ export default function RegisterScreen({ navigation }: Props) {
 
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Image 
-              source={require('../../../logoepet/logo.png')} 
+            <Image
+              source={require('../../../logoepet/logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -127,7 +127,12 @@ export default function RegisterScreen({ navigation }: Props) {
 
         <View style={styles.card}>
           <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+            <Ionicons
+              name="person-outline"
+              size={20}
+              color={colors.primary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Nome completo"
@@ -139,7 +144,12 @@ export default function RegisterScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="call-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+            <Ionicons
+              name="call-outline"
+              size={20}
+              color={colors.primary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Telefone"
@@ -151,7 +161,12 @@ export default function RegisterScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+            <Ionicons
+              name="mail-outline"
+              size={20}
+              color={colors.primary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="E-mail"
@@ -165,7 +180,12 @@ export default function RegisterScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color={colors.primary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Senha"
@@ -175,12 +195,21 @@ export default function RegisterScreen({ navigation }: Props) {
               secureTextEntry={!showPassword}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.gray500} />
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={colors.gray500}
+              />
             </TouchableOpacity>
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color={colors.primary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Confirmar Senha"
@@ -189,8 +218,15 @@ export default function RegisterScreen({ navigation }: Props) {
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirmPassword}
             />
-            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
-              <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.gray500} />
+            <TouchableOpacity
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              style={styles.eyeIcon}
+            >
+              <Ionicons
+                name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={colors.gray500}
+              />
             </TouchableOpacity>
           </View>
 
@@ -210,10 +246,7 @@ export default function RegisterScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={styles.linkButton}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.linkButton} onPress={() => navigation.goBack()}>
           <Text style={styles.linkText}>Já tem conta? </Text>
           <Text style={styles.linkTextBold}>Fazer login</Text>
         </TouchableOpacity>

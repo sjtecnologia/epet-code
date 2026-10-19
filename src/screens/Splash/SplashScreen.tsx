@@ -1,15 +1,7 @@
-import React, { useEffect, useRef, useMemo } from 'react';
-import {
-  View,
-  Animated,
-  StyleSheet,
-  Dimensions,
-  StatusBar,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Animated, StyleSheet, StatusBar, useWindowDimensions } from 'react-native';
 import Svg, { Ellipse } from 'react-native-svg';
 import { colors } from '../../constants/colors';
-
-const { width, height } = Dimensions.get('window');
 
 // Pata desenhada com SVG (almofada principal + 4 dedos)
 function PawPrint({ size, color }: { size: number; color: string }) {
@@ -34,9 +26,9 @@ interface Particle {
 
 const PARTICLE_COUNT = 28;
 
-function createParticles(): Particle[] {
+function createParticles(screenWidth: number): Particle[] {
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
-    x: Math.random() * (width - 60),
+    x: Math.random() * (screenWidth - 60),
     size: 30 + Math.random() * 24,
     anim: new Animated.Value(0),
     duration: 1800 + Math.random() * 1000,
@@ -49,10 +41,11 @@ interface SplashScreenProps {
 }
 
 export default function SplashScreen({ onFinish }: SplashScreenProps) {
-  const particles = useMemo(() => createParticles(), []);
-  const logoScale = useRef(new Animated.Value(0.5)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const screenOpacity = useRef(new Animated.Value(1)).current;
+  const { width, height } = useWindowDimensions();
+  const particles = useMemo(() => createParticles(width), [width]);
+  const [logoScale] = useState(() => new Animated.Value(0.5));
+  const [logoOpacity] = useState(() => new Animated.Value(0));
+  const [screenOpacity] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     particles.forEach((p) => {
@@ -65,7 +58,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
             useNativeDriver: true,
           }),
           Animated.timing(p.anim, { toValue: 0, duration: 0, useNativeDriver: true }),
-        ])
+        ]),
       ).start();
     });
 
@@ -91,7 +84,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [particles, logoScale, logoOpacity, screenOpacity, onFinish]);
 
   return (
     <Animated.View style={[styles.container, { opacity: screenOpacity }]}>
@@ -126,7 +119,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
       <Animated.Image
         source={require('../../../logoepet/logo.png')}
         style={[
-          styles.logo,
+          { width: width * 0.68, height: width * 0.68 },
           {
             opacity: logoOpacity,
             transform: [{ scale: logoScale }],
@@ -147,9 +140,5 @@ const styles = StyleSheet.create({
   },
   particle: {
     position: 'absolute',
-  },
-  logo: {
-    width: width * 0.68,
-    height: width * 0.68,
   },
 });

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PesosScreen — controle de peso do pet com gráfico de evolução.
  *
  * Registra pesagens ao longo do tempo e exibe um gráfico de linha.
@@ -16,17 +16,14 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
 import { LineChart } from 'react-native-gifted-charts';
-import {
-  collection, addDoc, getDocs, deleteDoc, doc, orderBy, query,
-} from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { colors } from '../../constants/colors';
 import { DashboardStackParamList } from '../../types/navigation.types';
@@ -44,8 +41,6 @@ type Pesagem = {
   created_at: string;
 };
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
 /** Converte DD/MM/AAAA para timestamp numérico usado na ordenação */
 const parseDateBR = (dateStr: string): number => {
   const parts = dateStr.split('/');
@@ -58,6 +53,7 @@ const parseDateBR = (dateStr: string): number => {
 
 export default function PesosScreen({ navigation, route }: Props) {
   const { pet } = route.params;
+  const { width } = useWindowDimensions();
   const [pesagens, setPesagens] = useState<Pesagem[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -67,7 +63,7 @@ export default function PesosScreen({ navigation, route }: Props) {
   const [data, setData] = useState('');
   const [observacao, setObservacao] = useState('');
 
-  const carregar = async () => {
+  const carregar = useCallback(async () => {
     try {
       setLoading(true);
       const q = query(
@@ -75,19 +71,23 @@ export default function PesosScreen({ navigation, route }: Props) {
         orderBy('created_at', 'asc'),
       );
       const snapshot = await getDocs(q);
-      const raw = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Pesagem));
+      const raw = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Pesagem);
       // Ordena pelo campo `data` (DD/MM/AAAA) cronologicamente,
       // independente da ordem de inserção no Firestore
       const sorted = [...raw].sort((a, b) => parseDateBR(a.data) - parseDateBR(b.data));
       setPesagens(sorted);
-    } catch (err) {
+    } catch {
       // silently fail — mostra lista vazia
     } finally {
       setLoading(false);
     }
-  };
+  }, [pet.id]);
 
-  useFocusEffect(useCallback(() => { carregar(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      carregar();
+    }, [carregar]),
+  );
 
   const formatarDataDigitada = (value: string): string => {
     let nums = value.replace(/\D/g, '');
@@ -143,9 +143,11 @@ export default function PesosScreen({ navigation, route }: Props) {
         created_at: new Date().toISOString(),
       });
       setModalVisible(false);
-      setPeso(''); setData(''); setObservacao('');
+      setPeso('');
+      setData('');
+      setObservacao('');
       carregar();
-    } catch (err) {
+    } catch {
       Alert.alert('Erro', 'Não foi possível salvar a pesagem.');
     } finally {
       setSaving(false);
@@ -156,7 +158,9 @@ export default function PesosScreen({ navigation, route }: Props) {
     Alert.alert('Excluir pesagem', 'Tem certeza?', [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Excluir', style: 'destructive', onPress: async () => {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
           await deleteDoc(doc(firestore, 'pets', pet.id, 'weights', id));
           carregar();
         },
@@ -166,9 +170,7 @@ export default function PesosScreen({ navigation, route }: Props) {
 
   const ultimoPeso = pesagens[pesagens.length - 1];
   const primeiroPeso = pesagens[0];
-  const variacao = pesagens.length >= 2
-    ? (ultimoPeso.peso - primeiroPeso.peso).toFixed(2)
-    : null;
+  const variacao = pesagens.length >= 2 ? (ultimoPeso.peso - primeiroPeso.peso).toFixed(2) : null;
 
   // Gráfico: usa no máximo as 8 pesagens mais recentes para caber no container
   const MAX_CHART_POINTS = 8;
@@ -180,11 +182,12 @@ export default function PesosScreen({ navigation, route }: Props) {
 
   // list padding (16*2) + chartContainer padding (16*2) + y-axis width
   const YAXIS_WIDTH = 50;
-  const chartAreaWidth = SCREEN_WIDTH - 32 - 32 - YAXIS_WIDTH;
+  const chartAreaWidth = width - 32 - 32 - YAXIS_WIDTH;
   const EDGE_SPACING = 16; // initialSpacing + endSpacing por lado
-  const chartSpacing = chartPoints.length > 1
-    ? Math.floor((chartAreaWidth - EDGE_SPACING * 2) / (chartPoints.length - 1))
-    : chartAreaWidth - EDGE_SPACING * 2;
+  const chartSpacing =
+    chartPoints.length > 1
+      ? Math.floor((chartAreaWidth - EDGE_SPACING * 2) / (chartPoints.length - 1))
+      : chartAreaWidth - EDGE_SPACING * 2;
 
   const renderItem = (item: Pesagem) => (
     <View key={item.id} style={styles.card}>
@@ -193,7 +196,10 @@ export default function PesosScreen({ navigation, route }: Props) {
         <Text style={styles.pesoData}>{item.data}</Text>
         {item.observacao ? <Text style={styles.pesoObs}>{item.observacao}</Text> : null}
       </View>
-      <TouchableOpacity onPress={() => excluir(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity
+        onPress={() => excluir(item.id)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
         <Ionicons name="trash-outline" size={18} color={colors.error} />
       </TouchableOpacity>
     </View>
@@ -217,10 +223,7 @@ export default function PesosScreen({ navigation, route }: Props) {
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.list}
-        >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           {/* Cards de resumo */}
           {pesagens.length > 0 && (
             <View style={styles.resumoRow}>
@@ -231,11 +234,14 @@ export default function PesosScreen({ navigation, route }: Props) {
               {variacao !== null && (
                 <View style={styles.resumoCard}>
                   <Text style={styles.resumoLabel}>Variação Total</Text>
-                  <Text style={[
-                    styles.resumoValor,
-                    { color: parseFloat(variacao) >= 0 ? colors.error : colors.primary },
-                  ]}>
-                    {parseFloat(variacao) >= 0 ? '+' : ''}{variacao} kg
+                  <Text
+                    style={[
+                      styles.resumoValor,
+                      { color: parseFloat(variacao) >= 0 ? colors.error : colors.primary },
+                    ]}
+                  >
+                    {parseFloat(variacao) >= 0 ? '+' : ''}
+                    {variacao} kg
                   </Text>
                 </View>
               )}
@@ -247,10 +253,11 @@ export default function PesosScreen({ navigation, route }: Props) {
             <View style={styles.chartContainer}>
               <View style={styles.chartHeader}>
                 <Text style={styles.chartTitle}>Evolução de Peso</Text>
-                {pesagens.length > MAX_CHART_POINTS
-                  ? <Text style={styles.chartHint}>Últimas {MAX_CHART_POINTS} pesagens</Text>
-                  : <Text style={styles.chartHint}>Toque e arraste para ver valores</Text>
-                }
+                {pesagens.length > MAX_CHART_POINTS ? (
+                  <Text style={styles.chartHint}>Últimas {MAX_CHART_POINTS} pesagens</Text>
+                ) : (
+                  <Text style={styles.chartHint}>Toque e arraste para ver valores</Text>
+                )}
               </View>
               <LineChart
                 data={chartPoints}
@@ -304,9 +311,7 @@ export default function PesosScreen({ navigation, route }: Props) {
             </View>
           )}
 
-          {pesagens.length > 0 && (
-            <Text style={styles.historicoTitle}>Histórico</Text>
-          )}
+          {pesagens.length > 0 && <Text style={styles.historicoTitle}>Histórico</Text>}
 
           {[...pesagens].reverse().map(renderItem)}
         </ScrollView>
@@ -317,8 +322,16 @@ export default function PesosScreen({ navigation, route }: Props) {
       </TouchableOpacity>
 
       {/* Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Registrar Peso</Text>
@@ -343,7 +356,7 @@ export default function PesosScreen({ navigation, route }: Props) {
               placeholder="DD/MM/AAAA"
               placeholderTextColor={colors.gray400}
               value={data}
-              onChangeText={v => setData(formatarDataDigitada(v))}
+              onChangeText={(v) => setData(formatarDataDigitada(v))}
               keyboardType="numeric"
               maxLength={10}
             />
@@ -358,10 +371,11 @@ export default function PesosScreen({ navigation, route }: Props) {
             />
 
             <TouchableOpacity style={styles.saveBtn} onPress={salvar} disabled={saving}>
-              {saving
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.saveBtnText}>Salvar Pesagem</Text>
-              }
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.saveBtnText}>Salvar Pesagem</Text>
+              )}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -373,41 +387,74 @@ export default function PesosScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.backgroundLight },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 60, paddingBottom: 20, backgroundColor: colors.primary,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: colors.primary,
   },
   headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '600', color: '#fff' },
   subtitle: {
-    fontSize: 14, textAlign: 'center', paddingVertical: 10,
-    backgroundColor: colors.primaryLight, color: '#fff', marginBottom: 8,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 10,
+    backgroundColor: colors.primaryLight,
+    color: '#fff',
+    marginBottom: 8,
   },
   list: { padding: 16, paddingBottom: 100 },
   resumoRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   resumoCard: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 16, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   resumoLabel: { fontSize: 12, color: colors.gray500, marginBottom: 4 },
   resumoValor: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   chartContainer: {
-    backgroundColor: '#fff', borderRadius: 14, paddingVertical: 16, marginBottom: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingVertical: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   chartHeader: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 12, paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 16,
   },
   chartTitle: { fontSize: 14, fontWeight: '600', color: colors.gray700 },
   chartHint: { fontSize: 11, color: colors.gray400 },
   historicoTitle: { fontSize: 14, fontWeight: '600', color: colors.gray600, marginBottom: 10 },
   card: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 10,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardLeft: { flex: 1 },
   pesoValor: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
@@ -417,35 +464,67 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.gray700 },
   emptySubtitle: { fontSize: 14, color: colors.gray500, textAlign: 'center' },
   fab: {
-    position: 'absolute', bottom: 28, right: 24, width: 56, height: 56, borderRadius: 28,
-    backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
+    position: 'absolute',
+    bottom: 28,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   modalContainer: {
-    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
   },
   modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   label: { fontSize: 13, fontWeight: '600', color: colors.gray600, marginBottom: 6, marginTop: 14 },
   input: {
-    borderWidth: 1.5, borderColor: colors.gray300, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.textPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.gray300,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.textPrimary,
   },
   saveBtn: {
-    backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', marginTop: 20, marginBottom: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 8,
   },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   tooltipBox: {
-    backgroundColor: '#fff', borderRadius: 10, borderWidth: 1.5,
-    borderColor: colors.primary, paddingVertical: 8, paddingHorizontal: 10,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1, shadowRadius: 4, elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   tooltipPeso: { fontSize: 15, fontWeight: '700', color: colors.primary },
   tooltipData: { fontSize: 11, color: colors.gray500, marginTop: 2 },

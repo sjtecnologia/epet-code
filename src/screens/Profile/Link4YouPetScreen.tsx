@@ -1,18 +1,11 @@
-﻿/**
+/**
  * Link4YouPetScreen — informações sobre a integração automática e-Pet ↔ 4YouPet.
  *
  * Com o Firebase Auth unificado, não é mais necessário vincular contas manualmente.
  * A mesma conta (e-mail/senha) funciona em ambos os aplicativos.
  */
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Platform,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../types/navigation.types';
@@ -40,7 +33,8 @@ export default function Link4YouPetScreen({ navigation }: Props) {
 
         <Text style={styles.title}>Integração Automática</Text>
         <Text style={styles.subtitle}>
-          Sua conta e-Pet e 4YouPet são a mesma conta! Ao criar seu perfil no e-Pet, você já tem acesso automático ao 4YouPet com o mesmo e-mail e senha.
+          Sua conta e-Pet e 4YouPet são a mesma conta! Ao criar seu perfil no e-Pet, você já tem
+          acesso automático ao 4YouPet com o mesmo e-mail e senha.
         </Text>
 
         <View style={styles.card}>
@@ -55,7 +49,9 @@ export default function Link4YouPetScreen({ navigation }: Props) {
           <Ionicons name="sync" size={24} color={colors.primary} />
           <View style={styles.cardText}>
             <Text style={styles.cardTitle}>Pets sincronizados</Text>
-            <Text style={styles.cardDesc}>Os pets cadastrados no e-Pet aparecem automaticamente no 4YouPet.</Text>
+            <Text style={styles.cardDesc}>
+              Os pets cadastrados no e-Pet aparecem automaticamente no 4YouPet.
+            </Text>
           </View>
         </View>
 
@@ -96,8 +92,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 16,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#1a1a1a', textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: colors.gray600, textAlign: 'center', lineHeight: 20, marginBottom: 28 },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.gray600,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 28,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

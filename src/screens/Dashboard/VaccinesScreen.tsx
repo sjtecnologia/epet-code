@@ -1,4 +1,4 @@
-﻿/**
+/**
  * VaccinesScreen — gerenciamento de vacinas de um pet e-Pet.
  *
  * Exibe a lista de vacinas cadastradas com status visual (em dia,
@@ -14,70 +14,46 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { collection, query, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+} from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { Vaccine } from '../../types/database.types';
 import { colors } from '../../constants/colors';
 import { DashboardStackParamList } from '../../types/navigation.types';
+import { parseDateBR, formatDateBR } from '../../lib/petForm';
 import {
-  COMMON_VACCINES,
-  maskDateInput,
-  isValidDateBR,
-  parseDateBR,
-  formatDateBR,
-} from '../../lib/petForm';
+  getVaccineStatus,
+  statusConfig,
+  countVaccinesByStatus,
+  validateVaccineForm,
+} from '../../lib/vaccines';
+import { VaccineFormModal } from '../../components/vaccineForm/VaccineFormModal';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'Vaccines'>;
   route: RouteProp<DashboardStackParamList, 'Vaccines'>;
 };
 
-/** Possíveis status de uma vacina baseados na data do próximo reforço */
-type VaccineStatus = 'up_to_date' | 'upcoming' | 'overdue' | 'no_reapply';
-
-/**
- * getVaccineStatus — calcula o status da vacina com base na data do próximo reforço.
- * - overdue: reforço já venceu
- * - upcoming: vence em até 30 dias
- * - up_to_date: ainda tem mais de 30 dias
- * - no_reapply: sem data de reforço (dose única)
- */
-function getVaccineStatus(vaccine: Vaccine): VaccineStatus {
-  if (!vaccine.next_due_date) return 'no_reapply';
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const nextDue = new Date(vaccine.next_due_date + 'T00:00:00');
-  const diffDays = Math.ceil((nextDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return 'overdue';
-  if (diffDays <= 30) return 'upcoming';
-  return 'up_to_date';
-}
-
-/** Configurações visuais (rótulo, cor e ícone) para cada status de vacina */
-const statusConfig: Record<VaccineStatus, { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  up_to_date: { label: 'Em dia', color: colors.primary, icon: 'checkmark-circle' },
-  upcoming: { label: 'Vence em breve', color: colors.warning, icon: 'time' },
-  overdue: { label: 'Vencida', color: colors.error, icon: 'alert-circle' },
-  no_reapply: { label: 'Dose única', color: colors.info, icon: 'information-circle' },
-};
-
 export default function VaccinesScreen({ navigation, route }: Props) {
-  const { pet } = route.params;                         // pet selecionado
+  const { pet } = route.params; // pet selecionado
   const [vaccines, setVaccines] = useState<Vaccine[]>([]); // lista de vacinas carregadas
-  const [loading, setLoading] = useState(true);            // indica carregamento inicial
-  const [showModal, setShowModal] = useState(false);       // controla o modal de adicionar/editar
-  const [showCommonVaccines, setShowCommonVaccines] = useState(false); // mostra lista de vacinas comuns
+  const [loading, setLoading] = useState(true); // indica carregamento inicial
+  const [showModal, setShowModal] = useState(false); // controla o modal de adicionar/editar
   const [editingVaccine, setEditingVaccine] = useState<Vaccine | null>(null); // vacina sendo editada (null = nova)
-  const [saving, setSaving] = useState(false);             // bloqueia o botão enquanto salva
+  const [saving, setSaving] = useState(false); // bloqueia o botão enquanto salva
 
   // Campos do formulário de vacina
   const emptyForm = {
@@ -93,11 +69,10 @@ export default function VaccinesScreen({ navigation, route }: Props) {
 
   /** Busca as vacinas do pet na subcoleção Firestore ordenadas da mais recente para a mais antiga */
   const fetchVaccines = useCallback(async () => {
-    setLoading(true);
     try {
       const vaccinesRef = collection(firestore, 'pets', pet.id, 'vaccines');
       const snapshot = await getDocs(query(vaccinesRef, orderBy('date_applied', 'desc')));
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Vaccine));
+      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Vaccine);
       setVaccines(data);
     } catch (err) {
       console.error('Erro ao buscar vacinas:', err);
@@ -114,7 +89,6 @@ export default function VaccinesScreen({ navigation, route }: Props) {
   const openAddModal = () => {
     setEditingVaccine(null);
     setFormData(emptyForm);
-    setShowCommonVaccines(false);
     setShowModal(true);
   };
 
@@ -129,7 +103,6 @@ export default function VaccinesScreen({ navigation, route }: Props) {
       batch: vaccine.batch || '',
       notes: vaccine.notes || '',
     });
-    setShowCommonVaccines(false);
     setShowModal(true);
   };
 
@@ -139,16 +112,9 @@ export default function VaccinesScreen({ navigation, route }: Props) {
    * caso contrário, insere um novo na subcoleção.
    */
   const handleSave = async () => {
-    if (!formData.name.trim()) {
-      Alert.alert('Erro', 'Informe o nome da vacina.');
-      return;
-    }
-    if (!isValidDateBR(formData.date_applied)) {
-      Alert.alert('Erro', 'Informe uma data de aplicação válida (dd/mm/aaaa).');
-      return;
-    }
-    if (formData.next_due_date && !isValidDateBR(formData.next_due_date)) {
-      Alert.alert('Erro', 'Data do próximo reforço inválida (dd/mm/aaaa).');
+    const validationError = validateVaccineForm(formData);
+    if (validationError) {
+      Alert.alert('Erro', validationError);
       return;
     }
 
@@ -189,34 +155,25 @@ export default function VaccinesScreen({ navigation, route }: Props) {
 
   /** Exibe confirmação antes de excluir permanentemente a vacina */
   const handleDelete = (vaccine: Vaccine) => {
-    Alert.alert(
-      'Excluir vacina',
-      `Deseja excluir o registro de "${vaccine.name}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteDoc(doc(firestore, 'pets', pet.id, 'vaccines', vaccine.id));
-              fetchVaccines();
-            } catch {
-              Alert.alert('Erro', 'Não foi possível excluir a vacina.');
-            }
-          },
+    Alert.alert('Excluir vacina', `Deseja excluir o registro de "${vaccine.name}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteDoc(doc(firestore, 'pets', pet.id, 'vaccines', vaccine.id));
+            fetchVaccines();
+          } catch {
+            Alert.alert('Erro', 'Não foi possível excluir a vacina.');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   // Contagem de vacinas por status (usada nos badges de resumo)
-  const counts = {
-    up_to_date: vaccines.filter(v => getVaccineStatus(v) === 'up_to_date').length,
-    upcoming: vaccines.filter(v => getVaccineStatus(v) === 'upcoming').length,
-    overdue: vaccines.filter(v => getVaccineStatus(v) === 'overdue').length,
-    no_reapply: vaccines.filter(v => getVaccineStatus(v) === 'no_reapply').length,
-  };
+  const counts = countVaccinesByStatus(vaccines);
 
   return (
     <View style={styles.container}>
@@ -291,16 +248,26 @@ export default function VaccinesScreen({ navigation, route }: Props) {
               <View key={vaccine.id} style={styles.vaccineCard}>
                 <View style={styles.vaccineCardHeader}>
                   <View style={styles.vaccineNameRow}>
-                    <View style={[styles.vaccineIconContainer, { backgroundColor: `${cfg.color}20` }]}>
+                    <View
+                      style={[styles.vaccineIconContainer, { backgroundColor: `${cfg.color}20` }]}
+                    >
                       <Ionicons name="medical" size={20} color={cfg.color} />
                     </View>
-                    <Text style={styles.vaccineName} numberOfLines={2}>{vaccine.name}</Text>
+                    <Text style={styles.vaccineName} numberOfLines={2}>
+                      {vaccine.name}
+                    </Text>
                   </View>
                   <View style={styles.vaccineActions}>
-                    <TouchableOpacity onPress={() => openEditModal(vaccine)} style={styles.actionBtn}>
+                    <TouchableOpacity
+                      onPress={() => openEditModal(vaccine)}
+                      style={styles.actionBtn}
+                    >
                       <Ionicons name="create-outline" size={20} color={colors.gray600} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(vaccine)} style={styles.actionBtn}>
+                    <TouchableOpacity
+                      onPress={() => handleDelete(vaccine)}
+                      style={styles.actionBtn}
+                    >
                       <Ionicons name="trash-outline" size={20} color={colors.error} />
                     </TouchableOpacity>
                   </View>
@@ -309,12 +276,20 @@ export default function VaccinesScreen({ navigation, route }: Props) {
                 <View style={styles.vaccineInfoGrid}>
                   <View style={styles.vaccineInfoItem}>
                     <Text style={styles.vaccineInfoLabel}>Aplicada em</Text>
-                    <Text style={styles.vaccineInfoValue}>{formatDateBR(vaccine.date_applied)}</Text>
+                    <Text style={styles.vaccineInfoValue}>
+                      {formatDateBR(vaccine.date_applied)}
+                    </Text>
                   </View>
                   {vaccine.next_due_date && (
                     <View style={styles.vaccineInfoItem}>
                       <Text style={styles.vaccineInfoLabel}>Próximo reforço</Text>
-                      <Text style={[styles.vaccineInfoValue, status === 'overdue' && { color: colors.error }, status === 'upcoming' && { color: colors.warning }]}>
+                      <Text
+                        style={[
+                          styles.vaccineInfoValue,
+                          status === 'overdue' && { color: colors.error },
+                          status === 'upcoming' && { color: colors.warning },
+                        ]}
+                      >
                         {formatDateBR(vaccine.next_due_date)}
                       </Text>
                     </View>
@@ -333,12 +308,14 @@ export default function VaccinesScreen({ navigation, route }: Props) {
                   )}
                 </View>
 
-                {vaccine.notes ? (
-                  <Text style={styles.vaccineNotes}>{vaccine.notes}</Text>
-                ) : null}
+                {vaccine.notes ? <Text style={styles.vaccineNotes}>{vaccine.notes}</Text> : null}
 
                 <View style={[styles.statusBadge, { backgroundColor: `${cfg.color}15` }]}>
-                  <Ionicons name={cfg.icon} size={13} color={cfg.color} />
+                  <Ionicons
+                    name={cfg.icon as keyof typeof Ionicons.glyphMap}
+                    size={13}
+                    color={cfg.color}
+                  />
                   <Text style={[styles.statusBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
                 </View>
               </View>
@@ -350,159 +327,18 @@ export default function VaccinesScreen({ navigation, route }: Props) {
       </ScrollView>
 
       {/* Modal Adicionar / Editar */}
-      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingVaccine ? 'Editar Vacina' : 'Nova Vacina'}
-              </Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={24} color={colors.gray600} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {/* Nome da vacina */}
-              <Text style={styles.inputLabel}>Nome da vacina *</Text>
-              <TouchableOpacity
-                style={styles.inputContainer}
-                onPress={() => setShowCommonVaccines(!showCommonVaccines)}
-                activeOpacity={1}
-              >
-                <Ionicons name="medical-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Ex: V8, Antirrábica..."
-                  placeholderTextColor={colors.gray400}
-                  value={formData.name}
-                  onChangeText={(v) => setFormData(prev => ({ ...prev, name: v }))}
-                  onFocus={() => setShowCommonVaccines(true)}
-                />
-                <TouchableOpacity onPress={() => setShowCommonVaccines(!showCommonVaccines)}>
-                  <Ionicons
-                    name={showCommonVaccines ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color={colors.gray500}
-                  />
-                </TouchableOpacity>
-              </TouchableOpacity>
-
-              {showCommonVaccines && (
-                <View style={styles.commonVaccinesList}>
-                  {COMMON_VACCINES.map((v) => (
-                    <TouchableOpacity
-                      key={v}
-                      style={styles.commonVaccineItem}
-                      onPress={() => {
-                        setFormData(prev => ({ ...prev, name: v === 'Outra' ? '' : v }));
-                        setShowCommonVaccines(false);
-                      }}
-                    >
-                      <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
-                      <Text style={styles.commonVaccineText}>{v}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              {/* Data de aplicação */}
-              <Text style={styles.inputLabel}>Data de aplicação *</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="calendar-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="dd/mm/aaaa"
-                  placeholderTextColor={colors.gray400}
-                  value={formData.date_applied}
-                  onChangeText={(v) => setFormData(prev => ({ ...prev, date_applied: maskDateInput(v) }))}
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
-              </View>
-
-              {/* Próximo reforço */}
-              <Text style={styles.inputLabel}>Próximo reforço</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="refresh-circle-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="dd/mm/aaaa (opcional)"
-                  placeholderTextColor={colors.gray400}
-                  value={formData.next_due_date}
-                  onChangeText={(v) => setFormData(prev => ({ ...prev, next_due_date: maskDateInput(v) }))}
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
-              </View>
-
-              {/* Veterinário */}
-              <Text style={styles.inputLabel}>Veterinário(a)</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Nome do veterinário (opcional)"
-                  placeholderTextColor={colors.gray400}
-                  value={formData.veterinarian}
-                  onChangeText={(v) => setFormData(prev => ({ ...prev, veterinarian: v }))}
-                />
-              </View>
-
-              {/* Lote */}
-              <Text style={styles.inputLabel}>Lote</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="barcode-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Número do lote (opcional)"
-                  placeholderTextColor={colors.gray400}
-                  value={formData.batch}
-                  onChangeText={(v) => setFormData(prev => ({ ...prev, batch: v }))}
-                  autoCapitalize="characters"
-                />
-              </View>
-
-              {/* Observações */}
-              <Text style={styles.inputLabel}>Observações</Text>
-              <View style={[styles.inputContainer, styles.textAreaContainer]}>
-                <TextInput
-                  style={[styles.textInput, styles.textArea]}
-                  placeholder="Reações, observações do veterinário... (opcional)"
-                  placeholderTextColor={colors.gray400}
-                  value={formData.notes}
-                  onChangeText={(v) => setFormData(prev => ({ ...prev, notes: v }))}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark" size={20} color="#fff" />
-                    <Text style={styles.saveButtonText}>
-                      {editingVaccine ? 'Salvar alterações' : 'Adicionar vacina'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <View style={{ height: 16 }} />
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <VaccineFormModal
+        visible={showModal}
+        title={editingVaccine ? 'Editar Vacina' : 'Nova Vacina'}
+        value={formData}
+        onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
+        onClose={() => setShowModal(false)}
+        onSave={handleSave}
+        saving={saving}
+        saveLabel={editingVaccine ? 'Salvar alterações' : 'Adicionar vacina'}
+        showExtraFields
+        showDateValidityIcon
+      />
     </View>
   );
 }
@@ -705,108 +541,5 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    maxHeight: '92%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.gray700,
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    marginBottom: 4,
-    minHeight: 52,
-  },
-  textAreaContainer: {
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-    minHeight: 90,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-  },
-  textArea: {
-    minHeight: 70,
-    paddingTop: 0,
-  },
-  commonVaccinesList: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.gray300,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  commonVaccineItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
-  },
-  commonVaccineText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  saveButtonDisabled: {
-    opacity: 0.7,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

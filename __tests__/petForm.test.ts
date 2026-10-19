@@ -148,7 +148,7 @@ describe('calculateAgeFromDate', () => {
 
 describe('constantes compartilhadas', () => {
   it('speciesOptions cobre as quatro espécies esperadas', () => {
-    expect(speciesOptions.map(o => o.id)).toEqual(['dog', 'cat', 'bird', 'other']);
+    expect(speciesOptions.map((o) => o.id)).toEqual(['dog', 'cat', 'bird', 'other']);
   });
 
   it('COMMON_VACCINES não contém entradas duplicadas', () => {

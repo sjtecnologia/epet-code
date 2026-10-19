@@ -1,10 +1,10 @@
-﻿/**
+/**
  * EditProfileScreen — permite ao usuário editar seu nome, telefone e foto de perfil.
  *
  * Pré-carrega os dados atuais do Firestore e faz setDoc com merge
  * ao salvar. A foto é enviada para o bucket 'avatars' do Firebase Storage.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -44,12 +44,8 @@ export default function EditProfileScreen({ navigation }: Props) {
     phone: '',
   });
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
   /** Carrega os dados atuais do perfil para pré-preencher o formulário */
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -65,7 +61,11 @@ export default function EditProfileScreen({ navigation }: Props) {
     } catch (err) {
       console.error('Erro ao buscar perfil:', err);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   /** Abre a galeria para selecionar uma nova foto de perfil */
   const pickImage = async () => {
@@ -127,7 +127,7 @@ export default function EditProfileScreen({ navigation }: Props) {
           avatar_url: avatarUrl,
           updated_at: new Date().toISOString(),
         },
-        { merge: true }
+        { merge: true },
       );
 
       setShowSuccessModal(true);
@@ -174,7 +174,12 @@ export default function EditProfileScreen({ navigation }: Props) {
         <Text style={styles.sectionTitle}>Dados Pessoais</Text>
         <View style={styles.inputGroup}>
           <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+            <Ionicons
+              name="person-outline"
+              size={20}
+              color={colors.gray500}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Nome completo"
@@ -185,12 +190,22 @@ export default function EditProfileScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+            <Ionicons
+              name="mail-outline"
+              size={20}
+              color={colors.gray500}
+              style={styles.inputIcon}
+            />
             <Text style={[styles.input, styles.disabledInput]}>{user?.email}</Text>
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="call-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+            <Ionicons
+              name="call-outline"
+              size={20}
+              color={colors.gray500}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Telefone"
@@ -225,18 +240,29 @@ export default function EditProfileScreen({ navigation }: Props) {
         visible={showSuccessModal}
         transparent
         animationType="fade"
-        onRequestClose={() => { setShowSuccessModal(false); navigation.goBack(); }}
+        onRequestClose={() => {
+          setShowSuccessModal(false);
+          navigation.goBack();
+        }}
       >
         <View style={styles.successOverlay}>
           <View style={styles.successModalCard}>
-            <Ionicons name="checkmark-circle" size={64} color="#10B981" style={{ marginBottom: 12 }} />
+            <Ionicons
+              name="checkmark-circle"
+              size={64}
+              color="#10B981"
+              style={{ marginBottom: 12 }}
+            />
             <Text style={styles.successTitle}>Perfil atualizado!</Text>
             <Text style={styles.successDescription}>
               Suas informações foram salvas com sucesso.
             </Text>
             <TouchableOpacity
               style={styles.successButton}
-              onPress={() => { setShowSuccessModal(false); navigation.goBack(); }}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.goBack();
+              }}
             >
               <Text style={styles.successButtonText}>OK</Text>
             </TouchableOpacity>

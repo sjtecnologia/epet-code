@@ -1,0 +1,5 @@
+node_modules
+.expo
+artifacts
+logoepet
+package-lock.json

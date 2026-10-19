@@ -27,7 +27,9 @@ export default function SpeciesSelector({ value, onChange }: Props) {
             style={[styles.speciesOption, active && styles.speciesOptionActive]}
             onPress={() => onChange(option.id)}
           >
-            <View style={[styles.speciesIconContainer, active && styles.speciesIconContainerActive]}>
+            <View
+              style={[styles.speciesIconContainer, active && styles.speciesIconContainerActive]}
+            >
               <Ionicons name={option.icon} size={24} color={active ? '#fff' : colors.primary} />
             </View>
             <Text style={[styles.speciesLabel, active && styles.speciesLabelActive]}>

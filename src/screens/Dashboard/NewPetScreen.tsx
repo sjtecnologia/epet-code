@@ -1,4 +1,4 @@
-﻿/**
+/**
  * NewPetScreen — formulário de cadastro de novo pet.
  *
  * Permite ao usuário preencher todos os dados do pet (nome, espécie, raça,
@@ -9,40 +9,40 @@
  * A UI de formulário é compartilhada com EditPetScreen via
  * src/components/petForm.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Modal,
 } from 'react-native';
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { firestore, firebaseAuth, storage } from '../../lib/firebase';
-import { useAuth } from '../../contexts/AuthContext';         // usuário autenticado
-import { Address } from '../../types/database.types';         // tipo do endereço
+import { firestore, firebaseAuth } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext'; // usuário autenticado
+import { Address } from '../../types/database.types'; // tipo do endereço
 import { DashboardStackParamList } from '../../types/navigation.types';
-import { colors } from '../../constants/colors';              // paleta de cores
+import { colors } from '../../constants/colors'; // paleta de cores
 import { syncPublicPet } from '../../lib/publicPet';
+import { uploadImageToStorage } from '../../lib/storage';
 import {
   generatePetId,
-  COMMON_VACCINES,
   emptyVaccineForm,
   VaccineDraft,
-  maskDateInput,
   isValidDateBR,
   parseDateBR,
   formatDateForDB,
   buildFullAddress,
 } from '../../lib/petForm';
+import { isValidCustomSpecies } from '../../lib/species';
+import { validateVaccineForm } from '../../lib/vaccines';
+import { VaccineFormModal } from '../../components/vaccineForm/VaccineFormModal';
+import { useSpeciesValidation } from '../../hooks/useSpeciesValidation';
 import {
   PetFormHeader,
   PhotoPicker,
@@ -65,7 +65,7 @@ export default function NewPetScreen({ navigation }: Props) {
   const { user } = useAuth(); // usuário autenticado
 
   // --- Estados gerais -----------------------------------------------------------
-  const [loading, setLoading] = useState(false);            // indica envio em andamento
+  const [loading, setLoading] = useState(false); // indica envio em andamento
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdPetName, setCreatedPetName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null); // URI local da foto escolhida
@@ -77,18 +77,19 @@ export default function NewPetScreen({ navigation }: Props) {
   const [complement, setComplement] = useState('');
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]); // endereços salvos do usuário
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [showAddressModal, setShowAddressModal] = useState(false);     // modal de seleção de endereço
+  const [showAddressModal, setShowAddressModal] = useState(false); // modal de seleção de endereço
 
   // --- Espécie customizada -------------------------------------------------------
-  const [customSpecies, setCustomSpecies] = useState('');              // texto da espécie "Outro"
-  const [validatingSpecies, setValidatingSpecies] = useState(false);   // indicador de validação assíncrona
-  const [speciesValidationResult, setSpeciesValidationResult] = useState<'valid' | 'invalid' | null>(null);
-  const [validationTimeout, setValidationTimeout] = useState<ReturnType<typeof setTimeout> | null>(null); // debounce timer
+  const [customSpecies, setCustomSpecies] = useState(''); // texto da espécie "Outro"
+  const {
+    validating: validatingSpecies,
+    result: speciesValidationResult,
+    validate: validateCustomSpeciesDebounced,
+  } = useSpeciesValidation();
 
   // --- Vacinas iniciais ----------------------------------------------------------
   const [initialVaccines, setInitialVaccines] = useState<VaccineDraft[]>([]); // lista de vacinas a cadastrar
-  const [showVaccineModal, setShowVaccineModal] = useState(false);             // modal de adicionar vacina
-  const [showCommonVaccines, setShowCommonVaccines] = useState(false);         // lista de vacinas comuns
+  const [showVaccineModal, setShowVaccineModal] = useState(false); // modal de adicionar vacina
   const [vaccineForm, setVaccineForm] = useState<VaccineDraft>(emptyVaccineForm); // campos do formulário de vacina
 
   // --- Peso inicial -------------------------------------------------------------
@@ -108,40 +109,40 @@ export default function NewPetScreen({ navigation }: Props) {
   // Seleção de foto (galeria/câmera) compartilhada
   const { showPhotoOptions } = usePhotoPicker((uri) => setPhotoUri(uri));
 
-  // Carrega os endereços salvos ao montar o componente
-  useEffect(() => {
-    fetchSavedAddresses();
-  }, []);
-
-  /** Busca os endereços cadastrados do usuário no Firestore e auto-seleciona o padrão */
-  const fetchSavedAddresses = async () => {
-    if (!user) return;
-
-    try {
-      const { getDocs, collection: col, query: q, where, orderBy } = await import('firebase/firestore');
-      const snapshot = await getDocs(
-        q(col(firestore, 'users', user.uid, 'addresses'), where('user_id', '==', user.uid))
-      );
-      const addrs = snapshot.docs
-        .map(d => ({ id: d.id, ...d.data() } as Address))
-        .sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
-
-      setSavedAddresses(addrs);
-      const defaultAddr = addrs.find(a => a.is_default);
-      if (defaultAddr) handleSelectAddress(defaultAddr);
-    } catch (err) {
-      console.error('Erro ao buscar endereços:', err);
-    }
-  };
-
   /** Preenche os campos de endereço com os dados do endereço selecionado */
-  const handleSelectAddress = (address: Address) => {
+  const handleSelectAddress = useCallback((address: Address) => {
     setSelectedAddressId(address.id);
     setStreet(address.street);
     setNumber(address.number);
     setComplement(address.complement || '');
     setShowAddressModal(false);
-  };
+  }, []);
+
+  /** Busca os endereços cadastrados do usuário no Firestore e auto-seleciona o padrão */
+  const fetchSavedAddresses = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { getDocs, collection: col, query: q, where } = await import('firebase/firestore');
+      const snapshot = await getDocs(
+        q(col(firestore, 'users', user.uid, 'addresses'), where('user_id', '==', user.uid)),
+      );
+      const addrs = snapshot.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Address)
+        .sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
+
+      setSavedAddresses(addrs);
+      const defaultAddr = addrs.find((a) => a.is_default);
+      if (defaultAddr) handleSelectAddress(defaultAddr);
+    } catch (err) {
+      console.error('Erro ao buscar endereços:', err);
+    }
+  }, [user, handleSelectAddress]);
+
+  // Carrega os endereços salvos ao montar o componente
+  useEffect(() => {
+    fetchSavedAddresses();
+  }, [fetchSavedAddresses]);
 
   /** Limpa os campos de endereço e a seleção ativa */
   const handleClearAddress = () => {
@@ -149,120 +150,6 @@ export default function NewPetScreen({ navigation }: Props) {
     setStreet('');
     setNumber('');
     setComplement('');
-  };
-
-  /**
-   * validateCustomSpeciesDebounced — aciona a validação da espécie com debounce de 800ms.
-   * Evita chamadas excessivas enquanto o usuário ainda está digitando.
-   */
-  const validateCustomSpeciesDebounced = (species: string) => {
-    // Limpa timeout anterior
-    if (validationTimeout) {
-      clearTimeout(validationTimeout);
-    }
-
-    setSpeciesValidationResult(null);
-    
-    if (!species || species.trim().length < 2) {
-      setSpeciesValidationResult(null);
-      return;
-    }
-
-    // Aguarda 800ms após usuário parar de digitar
-    const timeout = setTimeout(async () => {
-      const isValid = await validateCustomSpecies(species);
-      setSpeciesValidationResult(isValid ? 'valid' : 'invalid');
-    }, 800);
-
-    setValidationTimeout(timeout);
-  };
-
-  /**
-   * validateCustomSpecies — verifica se a espécie digitada está na lista de animais aceitos.
-   * Rejeita números, caracteres especiais e strings muito curtas/longas.
-   * Retorna true somente se a espécie for reconhecida e válida.
-   */
-  const validateCustomSpecies = async (species: string): Promise<boolean> => {
-    if (!species || species.trim().length < 2) return false;
-    
-    setValidatingSpecies(true);
-    try {
-      // Lista COMPLETA de animais aceitos (validação rigorosa)
-      const validAnimals = [
-        // Roedores e pequenos mamíferos
-        'coelho', 'hamster', 'porquinho da índia', 'chinchila', 'ferret', 'furão',
-        'rato', 'camundongo', 'gerbil', 'esquilo', 'twister',
-        // Répteis
-        'tartaruga', 'jabuti', 'iguana', 'camaleão', 'cobra', 'lagarto', 'gecko', 'dragão barbudo',
-        // Peixes
-        'peixe', 'beta', 'goldfish', 'kinguio', 'guppy', 'neon', 'oscar', 'koi',
-        // Aves
-        'periquito', 'papagaio', 'calopsita', 'canário', 'agapornis', 'cacatua', 'arara',
-        'galinha', 'pato', 'ganso', 'codorna', 'faisão',
-        // Animais de fazenda
-        'cavalo', 'égua', 'pônei', 'burro', 'jumento',
-        'cabra', 'ovelha', 'porco', 'mini pig', 'lhama', 'alpaca',
-        'vaca', 'boi', 'búfalo',
-        // Outros
-        'porquinho', 'ouriço', 'sugar glider', 'miniporco',
-      ];
-
-      const normalized = species.toLowerCase().trim();
-      
-      // Verificação estrita: deve estar na lista OU ser uma variação clara
-      const isInList = validAnimals.some(animal => {
-        // Aceita palavra exata ou palavra contida (para variações como "mini porco")
-        return normalized === animal || normalized.includes(animal) || animal.includes(normalized);
-      });
-
-      if (!isInList) {
-        return false;
-      }
-
-      // Validações de formato
-      const invalidPatterns = [
-        /\d{3,}/, // números longos
-        /[!@#$%^&*()+=\[\]{};':"\\|,.<>?]/g, // caracteres especiais
-        /^[a-z]$/i, // apenas uma letra
-        /[0-9]/g, // qualquer número
-      ];
-
-      if (invalidPatterns.some(pattern => pattern.test(normalized))) {
-        return false;
-      }
-
-      // Limite de tamanho
-      if (normalized.length < 3 || normalized.length > 30) {
-        return false;
-      }
-
-      return true;
-    } finally {
-      setValidatingSpecies(false);
-    }
-  };
-
-  /**
-   * uploadPhoto — faz upload da foto do pet para o Firebase Storage.
-   *
-   * envia ao Firebase Storage
-   * e retorna a URL pública gerada.
-   */
-  const uploadPhoto = async (uri: string): Promise<string | null> => {
-    try {
-      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-      const contentType = fileExt === 'png' ? 'image/png' : 'image/jpeg';
-      const fileName = `pet-photos/${user?.uid}/${Date.now()}.${fileExt}`;
-
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const storageRef = ref(storage, fileName);
-      await uploadBytes(storageRef, blob, { contentType });
-      return await getDownloadURL(storageRef);
-    } catch (error) {
-      console.error('Photo upload failed:', error);
-      return null;
-    }
   };
 
   /**
@@ -289,13 +176,19 @@ export default function NewPetScreen({ navigation }: Props) {
 
     if (formData.species === 'other') {
       if (speciesValidationResult === 'invalid') {
-        Alert.alert('Espécie inválida', 'Por favor, verifique o nome da espécie e tente novamente.');
+        Alert.alert(
+          'Espécie inválida',
+          'Por favor, verifique o nome da espécie e tente novamente.',
+        );
         return;
       }
       if (speciesValidationResult !== 'valid') {
-        const isValid = await validateCustomSpecies(customSpecies);
+        const isValid = isValidCustomSpecies(customSpecies);
         if (!isValid) {
-          Alert.alert('Espécie inválida', 'Por favor, verifique o nome da espécie e tente novamente.');
+          Alert.alert(
+            'Espécie inválida',
+            'Por favor, verifique o nome da espécie e tente novamente.',
+          );
           return;
         }
       }
@@ -306,7 +199,7 @@ export default function NewPetScreen({ navigation }: Props) {
     try {
       let photoUrl: string | null = null;
       if (photoUri) {
-        photoUrl = await uploadPhoto(photoUri);
+        photoUrl = await uploadImageToStorage(photoUri, `pet-photos/${user!.uid}`);
       }
 
       const fullAddress = buildFullAddress(street, number, complement);
@@ -345,21 +238,24 @@ export default function NewPetScreen({ navigation }: Props) {
       });
 
       // Salva as vacinas iniciais na subcoleção
-      const validVaccines = initialVaccines.filter(v => v.name && isValidDateBR(v.date_applied));
-      await Promise.all(validVaccines.map(v =>
-        addDoc(collection(firestore, 'pets', petDocRef.id, 'vaccines'), {
-          pet_id: petDocRef.id,
-          name: v.name,
-          date_applied: parseDateBR(v.date_applied),
-          next_due_date: v.next_due_date && isValidDateBR(v.next_due_date)
-            ? parseDateBR(v.next_due_date)
-            : null,
-          veterinarian: v.veterinarian || null,
-          batch: null,
-          notes: null,
-          created_at: new Date().toISOString(),
-        })
-      ));
+      const validVaccines = initialVaccines.filter((v) => v.name && isValidDateBR(v.date_applied));
+      await Promise.all(
+        validVaccines.map((v) =>
+          addDoc(collection(firestore, 'pets', petDocRef.id, 'vaccines'), {
+            pet_id: petDocRef.id,
+            name: v.name,
+            date_applied: parseDateBR(v.date_applied),
+            next_due_date:
+              v.next_due_date && isValidDateBR(v.next_due_date)
+                ? parseDateBR(v.next_due_date)
+                : null,
+            veterinarian: v.veterinarian || null,
+            batch: null,
+            notes: null,
+            created_at: new Date().toISOString(),
+          }),
+        ),
+      );
 
       // Salva o peso inicial na subcoleção 'weights' (se informado)
       const pesoNum = parseFloat(initialPeso.replace(',', '.'));
@@ -543,7 +439,7 @@ export default function NewPetScreen({ navigation }: Props) {
                   </View>
                 </View>
                 <TouchableOpacity
-                  onPress={() => setInitialVaccines(prev => prev.filter((_, i) => i !== index))}
+                  onPress={() => setInitialVaccines((prev) => prev.filter((_, i) => i !== index))}
                   style={styles.vaccineRemoveButton}
                 >
                   <Ionicons name="close-circle" size={22} color={colors.error} />
@@ -557,7 +453,6 @@ export default function NewPetScreen({ navigation }: Props) {
           style={styles.addVaccineButton}
           onPress={() => {
             setVaccineForm(emptyVaccineForm);
-            setShowCommonVaccines(false);
             setShowVaccineModal(true);
           }}
         >
@@ -591,175 +486,32 @@ export default function NewPetScreen({ navigation }: Props) {
       />
 
       {/* Modal de Adicionar Vacina */}
-      <Modal
+      <VaccineFormModal
         visible={showVaccineModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowVaccineModal(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <TouchableOpacity
-            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
-            activeOpacity={1}
-            onPress={() => setShowVaccineModal(false)}
-          />
-          <View style={styles.vaccineModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nova Vacina</Text>
-              <TouchableOpacity onPress={() => setShowVaccineModal(false)}>
-                <Ionicons name="close" size={24} color={colors.gray600} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled>
-              {/* Nome */}
-              <Text style={styles.vaccineFieldLabel}>Nome da vacina *</Text>
-              <View style={[styles.vaccineInputContainer, showCommonVaccines && styles.vaccineInputActive]}>
-                <Ionicons name="medical-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="Nome da vacina"
-                  placeholderTextColor={colors.gray500}
-                  value={vaccineForm.name}
-                  onChangeText={(text) => setVaccineForm({ ...vaccineForm, name: text })}
-                  onFocus={() => setShowCommonVaccines(false)}
-                />
-                <TouchableOpacity onPress={() => setShowCommonVaccines(!showCommonVaccines)}>
-                  <Ionicons
-                    name={showCommonVaccines ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color={colors.gray500}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {showCommonVaccines && (
-                <View style={styles.commonVaccinesList}>
-                  {COMMON_VACCINES.map((v) => (
-                    <TouchableOpacity
-                      key={v}
-                      style={[
-                        styles.commonVaccineItem,
-                        vaccineForm.name === v && styles.commonVaccineItemSelected,
-                      ]}
-                      onPress={() => {
-                        setVaccineForm({ ...vaccineForm, name: v === 'Outra' ? '' : v });
-                        setShowCommonVaccines(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.commonVaccineText,
-                        vaccineForm.name === v && styles.commonVaccineTextSelected,
-                      ]}>
-                        {v}
-                      </Text>
-                      {vaccineForm.name === v && (
-                        <Ionicons name="checkmark" size={16} color={colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              {/* Data de aplicação */}
-              <Text style={styles.vaccineFieldLabel}>Data de aplicação *</Text>
-              <View style={styles.vaccineInputContainer}>
-                <Ionicons name="calendar-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="dd/mm/aaaa"
-                  placeholderTextColor={colors.gray500}
-                  value={vaccineForm.date_applied}
-                  onChangeText={(text) =>
-                    setVaccineForm({ ...vaccineForm, date_applied: maskDateInput(text) })
-                  }
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
-                {vaccineForm.date_applied.length === 10 && (
-                  <Ionicons
-                    name={
-                      isValidDateBR(vaccineForm.date_applied) ? 'checkmark-circle' : 'close-circle'
-                    }
-                    size={20}
-                    color={isValidDateBR(vaccineForm.date_applied) ? '#10B981' : colors.error}
-                  />
-                )}
-              </View>
-
-              {/* Próxima dose */}
-              <Text style={styles.vaccineFieldLabel}>
-                Próxima dose{' '}
-                <Text style={styles.optionalLabel}>(opcional)</Text>
-              </Text>
-              <View style={styles.vaccineInputContainer}>
-                <Ionicons name="calendar-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="dd/mm/aaaa"
-                  placeholderTextColor={colors.gray500}
-                  value={vaccineForm.next_due_date}
-                  onChangeText={(text) =>
-                    setVaccineForm({ ...vaccineForm, next_due_date: maskDateInput(text) })
-                  }
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
-              </View>
-
-              {/* Veterinário */}
-              <Text style={styles.vaccineFieldLabel}>
-                Veterinário{' '}
-                <Text style={styles.optionalLabel}>(opcional)</Text>
-              </Text>
-              <View style={[styles.vaccineInputContainer, { marginBottom: 8 }]}>
-                <Ionicons name="person-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="Nome do veterinário"
-                  placeholderTextColor={colors.gray500}
-                  value={vaccineForm.veterinarian}
-                  onChangeText={(text) => setVaccineForm({ ...vaccineForm, veterinarian: text })}
-                />
-              </View>
-            </ScrollView>
-
-            <View style={styles.vaccineModalButtons}>
-              <TouchableOpacity
-                style={styles.vaccineCancelButton}
-                onPress={() => setShowVaccineModal(false)}
-              >
-                <Text style={styles.vaccineCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.vaccineSaveButton}
-                onPress={() => {
-                  if (!vaccineForm.name.trim()) {
-                    Alert.alert('Atenção', 'Informe o nome da vacina.');
-                    return;
-                  }
-                  if (!isValidDateBR(vaccineForm.date_applied)) {
-                    Alert.alert('Atenção', 'Informe uma data de aplicação válida (dd/mm/aaaa).');
-                    return;
-                  }
-                  if (vaccineForm.next_due_date && !isValidDateBR(vaccineForm.next_due_date)) {
-                    Alert.alert('Atenção', 'A data da próxima dose está inválida.');
-                    return;
-                  }
-                  setInitialVaccines(prev => [...prev, { ...vaccineForm }]);
-                  setShowVaccineModal(false);
-                }}
-              >
-                <Ionicons name="add-circle" size={20} color="#fff" />
-                <Text style={styles.vaccineSaveText}>Adicionar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        title="Nova Vacina"
+        value={vaccineForm}
+        onChange={(next) =>
+          setVaccineForm({
+            name: next.name,
+            date_applied: next.date_applied,
+            next_due_date: next.next_due_date,
+            veterinarian: next.veterinarian,
+          })
+        }
+        onClose={() => setShowVaccineModal(false)}
+        onSave={() => {
+          const validationError = validateVaccineForm(vaccineForm);
+          if (validationError) {
+            Alert.alert('Atenção', validationError);
+            return;
+          }
+          setInitialVaccines((prev) => [...prev, { ...vaccineForm }]);
+          setShowVaccineModal(false);
+        }}
+        saveLabel="Adicionar"
+        cancelLabel="Cancelar"
+        showDateValidityIcon
+      />
 
       <SuccessModal
         visible={showSuccessModal}
@@ -795,30 +547,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 8,
   },
-  input: {
-    flex: 1,
-    paddingVertical: 16,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
   inputGroup: {
     gap: 12,
     marginBottom: 8,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.textPrimary,
   },
   vaccineHeader: {
     flexDirection: 'row',
@@ -902,106 +633,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.primary,
-  },
-  vaccineModalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '88%',
-    paddingTop: 24,
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  vaccineFieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  optionalLabel: {
-    fontSize: 12,
-    color: colors.gray500,
-    fontWeight: '400',
-  },
-  vaccineInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.backgroundLight,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.gray300,
-    paddingHorizontal: 16,
-  },
-  vaccineInputActive: {
-    borderColor: colors.primary,
-  },
-  commonVaccinesList: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.gray300,
-    marginTop: 4,
-    marginBottom: 4,
-    overflow: 'hidden',
-  },
-  commonVaccineItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
-  },
-  commonVaccineItemSelected: {
-    backgroundColor: colors.tertiary,
-  },
-  commonVaccineText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  commonVaccineTextSelected: {
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  vaccineModalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-  },
-  vaccineCancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.gray200,
-    borderRadius: 12,
-  },
-  vaccineCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.gray700,
-  },
-  vaccineSaveButton: {
-    flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-  },
-  vaccineSaveText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
   },
   bottomPadding: {
     height: 40,

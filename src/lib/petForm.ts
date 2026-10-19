@@ -109,6 +109,34 @@ export function formatDateBR(dateString: string | null): string {
   return `${day}/${month}/${year}`;
 }
 
+/**
+ * Formata qualquer valor de data (ISO, Timestamp Firestore, Date, epoch)
+ * para exibição no padrão DD/MM/AAAA. Retorna 'Não informado' se vazio/inválido.
+ */
+export function formatDisplayDate(value: unknown): string {
+  const date = toDate(value);
+  return date ? date.toLocaleDateString('pt-BR') : 'Não informado';
+}
+
+/**
+ * Calcula a idade curta do pet (anos/meses) a partir de Timestamp/string.
+ * Retorna 'X anos', 'X mês' ou 'Filhote' — usado nas carteiras 4YouPet.
+ */
+export function calculateAgeYearMonths(value: unknown): string {
+  const birth = toDate(value);
+  if (!birth) return '';
+  const today = new Date();
+  let years = today.getFullYear() - birth.getFullYear();
+  let months = today.getMonth() - birth.getMonth();
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  if (years > 0) return `${years} ano${years > 1 ? 's' : ''}`;
+  if (months > 0) return `${months} mês${months > 1 ? 'es' : ''}`;
+  return 'Filhote';
+}
+
 /** Converte um objeto Date para a string AAAA-MM-DD usada no banco de dados */
 export function formatDateForDB(date: Date | null): string | null {
   if (!date) return null;

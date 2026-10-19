@@ -40,7 +40,12 @@ export default function App() {
         <StatusBar style="auto" />
       </AuthProvider>
       {/* Alert customizado — montado fora do AuthProvider para ser acessível globalmente */}
-      <CustomAlertComponent ref={(r) => { alertRef.current = r; registerAlertRef(r); }} />
+      <CustomAlertComponent
+        ref={(r) => {
+          alertRef.current = r;
+          registerAlertRef(r);
+        }}
+      />
     </SafeAreaProvider>
   );
 }

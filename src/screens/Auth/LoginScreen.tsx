@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LoginScreen — tela de login do app e-Pet.
  *
  * Funcionalidades:
@@ -38,10 +38,10 @@ type Props = {
 export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);          // Controla o indicador de carregamento do login
+  const [loading, setLoading] = useState(false); // Controla o indicador de carregamento do login
   const [showPassword, setShowPassword] = useState(false); // Alterna visibilidade da senha
   const [showForgotModal, setShowForgotModal] = useState(false); // Controla o modal de recuperação
-  const [resetEmail, setResetEmail] = useState('');        // E-mail digitado no modal de reset
+  const [resetEmail, setResetEmail] = useState(''); // E-mail digitado no modal de reset
   const [resetLoading, setResetLoading] = useState(false); // Indicador do botão de envio de reset
   const { signIn } = useAuth();
 
@@ -51,8 +51,7 @@ export default function LoginScreen({ navigation }: Props) {
    * exibe uma mensagem orientando-o a verificar a caixa de entrada.
    */
   /** Valida formato básico de e-mail */
-  const isValidEmail = (value: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -71,9 +70,10 @@ export default function LoginScreen({ navigation }: Props) {
 
     if (error) {
       const code = (error as FirebaseLikeError).code;
-      const msg = code === 'auth/network-request-failed'
-        ? 'Sem conexão com a internet. Tente novamente.'
-        : 'E-mail ou senha incorretos.';
+      const msg =
+        code === 'auth/network-request-failed'
+          ? 'Sem conexão com a internet. Tente novamente.'
+          : 'E-mail ou senha incorretos.';
       Alert.alert('Erro', msg);
     }
     // Se sem erro, o onAuthStateChanged detecta o user e navega automaticamente
@@ -95,7 +95,7 @@ export default function LoginScreen({ navigation }: Props) {
       setResetEmail('');
       Alert.alert(
         'E-mail enviado!',
-        'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.'
+        'Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.',
       );
     } catch {
       Alert.alert('Erro', 'Não foi possível enviar o e-mail. Verifique o endereço informado.');
@@ -113,84 +113,105 @@ export default function LoginScreen({ navigation }: Props) {
         <View style={styles.content}>
           <View style={styles.header}>
             <View style={Platform.OS === 'ios' ? styles.logoContainerIOS : styles.logoContainer}>
-              <Image 
-                source={require('../../../logoepet/logo.png')} 
+              <Image
+                source={require('../../../logoepet/logo.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />
             </View>
             <Text style={Platform.OS === 'ios' ? styles.titleIOS : styles.title}>Login</Text>
-            <Text style={Platform.OS === 'ios' ? styles.subtitleIOS : styles.subtitle}>Seu Pet precisa de um PetID.</Text>
+            <Text style={Platform.OS === 'ios' ? styles.subtitleIOS : styles.subtitle}>
+              Seu Pet precisa de um PetID.
+            </Text>
           </View>
 
-        <View style={Platform.OS === 'ios' ? styles.cardIOS : styles.card}>
-          <View style={Platform.OS === 'ios' ? styles.inputContainerIOS : styles.inputContainer}>
-            <Ionicons name="mail-outline" size={22} color={colors.primary} style={styles.inputIcon} />
-            <TextInput
-              style={Platform.OS === 'ios' ? styles.inputIOS : styles.input}
-              placeholder="E-mail"
-              placeholderTextColor={colors.gray500}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
+          <View style={Platform.OS === 'ios' ? styles.cardIOS : styles.card}>
+            <View style={Platform.OS === 'ios' ? styles.inputContainerIOS : styles.inputContainer}>
+              <Ionicons
+                name="mail-outline"
+                size={22}
+                color={colors.primary}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={Platform.OS === 'ios' ? styles.inputIOS : styles.input}
+                placeholder="E-mail"
+                placeholderTextColor={colors.gray500}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
 
-          <View style={Platform.OS === 'ios' ? styles.inputContainerIOS : styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={22} color={colors.primary} style={styles.inputIcon} />
-            <TextInput
-              style={Platform.OS === 'ios' ? styles.inputIOS : styles.input}
-              placeholder="Senha"
-              placeholderTextColor={colors.gray500}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.gray500} />
+            <View style={Platform.OS === 'ios' ? styles.inputContainerIOS : styles.inputContainer}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={22}
+                color={colors.primary}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={Platform.OS === 'ios' ? styles.inputIOS : styles.input}
+                placeholder="Senha"
+                placeholderTextColor={colors.gray500}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={colors.gray500}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                Platform.OS === 'ios' ? styles.buttonIOS : styles.button,
+                loading && styles.buttonDisabled,
+              ]}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={Platform.OS === 'ios' ? styles.buttonTextIOS : styles.buttonText}>
+                    Entrar
+                  </Text>
+                  <Ionicons name="arrow-forward" size={22} color="#fff" />
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.forgotButton}
+              onPress={() => {
+                setResetEmail(email);
+                setShowForgotModal(true);
+              }}
+            >
+              <Text style={styles.forgotText}>Esqueceu a senha?</Text>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            style={[
-              Platform.OS === 'ios' ? styles.buttonIOS : styles.button,
-              loading && styles.buttonDisabled
-            ]}
-            onPress={handleLogin}
-            disabled={loading}
-            activeOpacity={0.8}
+            style={styles.linkButton}
+            onPress={() => navigation.navigate('Register')}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Text style={Platform.OS === 'ios' ? styles.buttonTextIOS : styles.buttonText}>Entrar</Text>
-                <Ionicons name="arrow-forward" size={22} color="#fff" />
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.forgotButton}
-            onPress={() => {
-              setResetEmail(email);
-              setShowForgotModal(true);
-            }}
-          >
-            <Text style={styles.forgotText}>Esqueceu a senha?</Text>
+            <Text style={styles.linkText}>Não tem conta? </Text>
+            <Text style={styles.linkTextBold}>Cadastre-se</Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.linkButton}
-          onPress={() => navigation.navigate('Register')}
-        >
-          <Text style={styles.linkText}>Não tem conta? </Text>
-          <Text style={styles.linkTextBold}>Cadastre-se</Text>
-        </TouchableOpacity>
-      </View>
       </KeyboardAvoidingView>
 
       {/* Modal de recuperação de senha */}
@@ -215,7 +236,12 @@ export default function LoginScreen({ navigation }: Props) {
               Informe seu e-mail e enviaremos um link para redefinir sua senha.
             </Text>
             <View style={styles.modalInputContainer}>
-              <Ionicons name="mail-outline" size={20} color={colors.primary} style={styles.inputIcon} />
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={colors.primary}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.modalInput}
                 placeholder="Seu e-mail"

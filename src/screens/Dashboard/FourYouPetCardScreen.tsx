@@ -1,11 +1,11 @@
-﻿/**
+/**
  * FourYouPetCardScreen — exibe a carteira digital de um pet do 4YouPet.
  *
  * Busca o perfil do tutor no Firestore para exibir dados de contato,
  * gera o QR Code do pet e permite compartilhar a carteira como imagem.
  * Segue a mesma lógica de captura/compartilhamento do PetCardScreen.
  */
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,15 +23,14 @@ import { RouteProp } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { FourYouPet, UserDoc } from '../../types/database.types';
+import { UserDoc } from '../../types/database.types';
 import { colors } from '../../constants/colors';
 import { DashboardStackParamList } from '../../types/navigation.types';
-import { toDate } from '../../lib/petForm';
+import { formatDisplayDate, calculateAgeYearMonths } from '../../lib/petForm';
+import { useShareCard } from '../../hooks/useShareCard';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'FourYouPetCard'>;
@@ -46,31 +45,12 @@ type OwnerProfile = {
   address: string;
 };
 
-/** Converte Firestore Timestamp ou string em data no formato DD/MM/AAAA */
-const formatDate = (timestamp: unknown): string => {
-  const date = toDate(timestamp);
-  return date ? date.toLocaleDateString('pt-BR') : 'Não informado';
-};
-
-/** Calcula a idade do pet a partir de um Timestamp Firestore ou string */
-const calculateAge = (timestamp: unknown): string => {
-  const birth = toDate(timestamp);
-  if (!birth) return '';
-  const today = new Date();
-  let years = today.getFullYear() - birth.getFullYear();
-  let months = today.getMonth() - birth.getMonth();
-  if (months < 0) { years--; months += 12; }
-  if (years > 0) return `${years} ano${years > 1 ? 's' : ''}`;
-  if (months > 0) return `${months} mês${months > 1 ? 'es' : ''}`;
-  return 'Filhote';
-};
-
 export default function FourYouPetCardScreen({ navigation, route }: Props) {
   const { pet } = route.params;
   const { user } = useAuth();
   const qrRef = useRef<QRCode | null>(null);
   const cardRef = useRef<ViewShotRef>(null); // ref para captura da carteira como imagem
-  const [sharing, setSharing] = useState(false);   // bloqueia o botão durante o compartilhamento
+  const { sharing, shareCard } = useShareCard(cardRef); // bloqueia o botão durante o compartilhamento
   // Dados do tutor carregados do perfil Firestore
   const [ownerProfile, setOwnerProfile] = useState<OwnerProfile>({
     name: '',
@@ -79,12 +59,8 @@ export default function FourYouPetCardScreen({ navigation, route }: Props) {
     address: '',
   });
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
   /** Busca o perfil do tutor no Firestore para preencher os dados de contato na carteira */
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
     try {
       const snap = await getDoc(doc(firestore, 'users', user.uid));
@@ -101,43 +77,13 @@ export default function FourYouPetCardScreen({ navigation, route }: Props) {
     } catch (err) {
       console.error('Erro ao buscar perfil:', err);
     }
-  };
+  }, [user]);
 
-  const handleShare = async () => {
-    try {
-      setSharing(true);
-      if (!cardRef.current) {
-        Alert.alert('Erro', 'Não foi possível gerar o documento.');
-        setSharing(false);
-        return;
-      }
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (!isAvailable) {
-        Alert.alert('Erro', 'Compartilhamento não disponível neste dispositivo.');
-        setSharing(false);
-        return;
-      }
-      const uri = await cardRef.current?.capture?.();
-      if (!uri) {
-        Alert.alert('Erro', 'Não foi possível capturar a imagem.');
-        setSharing(false);
-        return;
-      }
-      const fileName = `e-Pet_${pet.name.replace(/\s+/g, '_')}_${Date.now()}.png`;
-      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
-      await FileSystem.moveAsync({ from: uri, to: fileUri });
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'image/png',
-        dialogTitle: `Carteira do Pet - ${pet.name}`,
-        UTI: 'public.png',
-      });
-      setSharing(false);
-    } catch (error) {
-      console.error(error);
-      setSharing(false);
-      Alert.alert('Erro', 'Não foi possível compartilhar o documento.');
-    }
-  };
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  const handleShare = () => shareCard(pet.name);
 
   const copyPetId = async () => {
     if (!pet.pet_id) return;
@@ -148,7 +94,7 @@ export default function FourYouPetCardScreen({ navigation, route }: Props) {
   // O QR contém somente o identificador necessário para a busca do pet.
   const qrValue = pet.pet_id ?? '';
 
-  const age = calculateAge(pet.birth);
+  const age = calculateAgeYearMonths(pet.birth);
 
   return (
     <View style={styles.container}>
@@ -251,7 +197,7 @@ export default function FourYouPetCardScreen({ navigation, route }: Props) {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.infoLabel}>Nascimento</Text>
-                      <Text style={styles.infoValue}>{formatDate(pet.birth)}</Text>
+                      <Text style={styles.infoValue}>{formatDisplayDate(pet.birth)}</Text>
                       {age ? <Text style={styles.ageText}>{age}</Text> : null}
                     </View>
                   </View>

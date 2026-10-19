@@ -1,4 +1,4 @@
-﻿/**
+/**
  * EditFourYouPetScreen — permite editar os dados básicos de um pet do 4YouPet.
  *
  * Atualiza o documento correspondente na coleção 'pet' do Firestore com
@@ -25,10 +25,9 @@ import { RouteProp } from '@react-navigation/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
-import { FourYouPet } from '../../types/database.types';
 import { colors } from '../../constants/colors';
 import { DashboardStackParamList } from '../../types/navigation.types';
-import { toDate } from '../../lib/petForm';
+import { toDate, formatDisplayDate, calculateAgeYearMonths } from '../../lib/petForm';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'EditFourYouPet'>;
@@ -38,27 +37,8 @@ type Props = {
 /** Converte um Firestore Timestamp, Date ou string em um objeto Date */
 const parseBirthToDate = (birth: unknown): Date => toDate(birth) ?? new Date();
 
-/** Formata um objeto Date para exibição no padrão DD/MM/AAAA */
-const formatDateForDisplay = (date: Date): string => {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
-};
-
-/** Calcula a idade a partir de um objeto Date e retorna texto legfível */
-const calculateAge = (date: Date): string => {
-  const today = new Date();
-  let years = today.getFullYear() - date.getFullYear();
-  let months = today.getMonth() - date.getMonth();
-  if (months < 0) { years--; months += 12; }
-  if (years > 0) return `${years} ano${years > 1 ? 's' : ''}`;
-  if (months > 0) return `${months} mês${months > 1 ? 'es' : ''}`;
-  return 'Filhote';
-};
-
 export default function EditFourYouPetScreen({ navigation, route }: Props) {
-  const { pet } = route.params;               // dados atuais do pet 4YouPet
+  const { pet } = route.params; // dados atuais do pet 4YouPet
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -132,14 +112,21 @@ export default function EditFourYouPetScreen({ navigation, route }: Props) {
         <View style={styles.petIdContainer}>
           <Ionicons name="id-card" size={18} color={colors.primary} />
           <Text style={styles.petIdLabel}>ID do Pet:</Text>
-          <Text style={styles.petIdValue} numberOfLines={1}>{pet.pet_id || pet.id}</Text>
+          <Text style={styles.petIdValue} numberOfLines={1}>
+            {pet.pet_id || pet.id}
+          </Text>
         </View>
 
         {/* Dados do Pet */}
         <Text style={styles.sectionTitle}>Dados do Pet</Text>
         <View style={styles.inputGroup}>
           <View style={styles.inputContainer}>
-            <Ionicons name="paw-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+            <Ionicons
+              name="paw-outline"
+              size={20}
+              color={colors.gray500}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Nome do pet *"
@@ -150,7 +137,12 @@ export default function EditFourYouPetScreen({ navigation, route }: Props) {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="heart-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+            <Ionicons
+              name="heart-outline"
+              size={20}
+              color={colors.gray500}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Raça"
@@ -161,24 +153,29 @@ export default function EditFourYouPetScreen({ navigation, route }: Props) {
           </View>
 
           {/* DatePicker para Data de Nascimento */}
-          <TouchableOpacity
-            style={styles.inputContainer}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Ionicons name="calendar-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+          <TouchableOpacity style={styles.inputContainer} onPress={() => setShowDatePicker(true)}>
+            <Ionicons
+              name="calendar-outline"
+              size={20}
+              color={colors.gray500}
+              style={styles.inputIcon}
+            />
             <View style={{ flex: 1 }}>
               <Text style={[styles.input, styles.dateText, { paddingVertical: 8 }]}>
-                {formatDateForDisplay(birthDate)}
+                {formatDisplayDate(birthDate)}
               </Text>
-              <Text style={styles.ageText}>
-                {calculateAge(birthDate)}
-              </Text>
+              <Text style={styles.ageText}>{calculateAgeYearMonths(birthDate)}</Text>
             </View>
             <Ionicons name="chevron-down" size={20} color={colors.gray500} />
           </TouchableOpacity>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="resize-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+            <Ionicons
+              name="resize-outline"
+              size={20}
+              color={colors.gray500}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Porte (ex: Pequeno, Médio, Grande)"
@@ -189,7 +186,12 @@ export default function EditFourYouPetScreen({ navigation, route }: Props) {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="color-palette-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+            <Ionicons
+              name="color-palette-outline"
+              size={20}
+              color={colors.gray500}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Cor"
@@ -283,18 +285,29 @@ export default function EditFourYouPetScreen({ navigation, route }: Props) {
         visible={showSuccessModal}
         transparent
         animationType="fade"
-        onRequestClose={() => { setShowSuccessModal(false); navigation.goBack(); }}
+        onRequestClose={() => {
+          setShowSuccessModal(false);
+          navigation.goBack();
+        }}
       >
         <View style={styles.successOverlay}>
           <View style={styles.successModalCard}>
-            <Ionicons name="checkmark-circle" size={64} color="#10B981" style={{ marginBottom: 12 }} />
+            <Ionicons
+              name="checkmark-circle"
+              size={64}
+              color="#10B981"
+              style={{ marginBottom: 12 }}
+            />
             <Text style={styles.successTitle}>Pet atualizado!</Text>
             <Text style={styles.successDescription}>
               As informações do pet foram salvas com sucesso.
             </Text>
             <TouchableOpacity
               style={styles.successButton}
-              onPress={() => { setShowSuccessModal(false); navigation.goBack(); }}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.goBack();
+              }}
             >
               <Text style={styles.successButtonText}>OK</Text>
             </TouchableOpacity>

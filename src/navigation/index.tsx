@@ -30,7 +30,7 @@
  *          ├── Help
  *          └── Link4YouPet
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -40,7 +40,13 @@ import { Platform } from 'react-native';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
 import { colors } from '../constants/colors';
-import { DashboardStackParamList, MyPetsStackParamList, RootStackParamList, ProfileStackParamList, MainTabsParamList } from '../types/navigation.types';
+import {
+  DashboardStackParamList,
+  MyPetsStackParamList,
+  RootStackParamList,
+  ProfileStackParamList,
+  MainTabsParamList,
+} from '../types/navigation.types';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -80,10 +86,18 @@ import SearchScreen from '../screens/Search/SearchScreen';
 
 // Instâncias dos navegadores tipados
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const DashboardStack_Navigator = createNativeStackNavigator<DashboardStackParamList>();
-const MyPetsStack_Navigator = createNativeStackNavigator<MyPetsStackParamList>();
+const PetStack_Navigator = createNativeStackNavigator<
+  DashboardStackParamList & MyPetsStackParamList
+>();
 const ProfileStack_Navigator = createNativeStackNavigator<ProfileStackParamList>();
 const Tab = createBottomTabNavigator<MainTabsParamList>();
+
+/** screenOptions padrão dos stacks de pets (idêntico em Dashboard e Meus Pets) */
+const petStackScreenOptions = {
+  headerShown: false,
+  animation: 'slide_from_right' as const,
+  animationDuration: 300,
+};
 
 /**
  * AuthStack — fluxo de telas exibido quando o usuário NÃO está autenticado.
@@ -91,8 +105,8 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
  */
 function AuthStack() {
   return (
-    <Stack.Navigator 
-      screenOptions={{ 
+    <Stack.Navigator
+      screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
         animationDuration: 300,
@@ -106,67 +120,81 @@ function AuthStack() {
 }
 
 /**
- * DashboardStack — stack interno da aba "Início".
- * Gerencia todas as telas relacionadas a pets (listagem, cadastro, edição, carteira, vacinas).
+ * PetStack — stack compartilhado das telas de pets, usado pelas abas
+ * "Início" (tela inicial Dashboard) e "Meus Pets" (tela inicial MyPetsList).
+ * Todas as demais rotas (cadastro, carteira, edição, vacinas etc.) são idênticas.
  */
-function DashboardStack() {
+function PetStack({ initialRoute }: { initialRoute: 'Dashboard' | 'MyPetsList' }) {
   return (
-    <DashboardStack_Navigator.Navigator 
-      screenOptions={{ 
-        headerShown: false,
-        animation: 'slide_from_right',
-        animationDuration: 300,
-      }}
-    >
-      {/* Tela inicial: lista de todos os pets (e-Pet + 4YouPet) */}
-      <DashboardStack_Navigator.Screen name="Dashboard" component={DashboardScreen} />
+    <PetStack_Navigator.Navigator screenOptions={petStackScreenOptions}>
+      {/* Tela inicial da aba */}
+      {initialRoute === 'Dashboard' ? (
+        <PetStack_Navigator.Screen name="Dashboard" component={DashboardScreen} />
+      ) : (
+        <PetStack_Navigator.Screen name="MyPetsList" component={MyPetsScreen} />
+      )}
       {/* Formulário de cadastro de novo pet */}
-      <DashboardStack_Navigator.Screen name="NewPet" component={NewPetScreen} />
+      <PetStack_Navigator.Screen name="NewPet" component={NewPetScreen} />
       {/* Carteira digital do pet (QR Code + informações) — animação de baixo para cima */}
-      <DashboardStack_Navigator.Screen name="PetCard" component={PetCardScreen} options={{ animation: 'fade_from_bottom' }} />
+      <PetStack_Navigator.Screen
+        name="PetCard"
+        component={PetCardScreen}
+        options={{ animation: 'fade_from_bottom' }}
+      />
       {/* Edição de pet cadastrado no e-Pet */}
-      <DashboardStack_Navigator.Screen name="EditPet" component={EditPetScreen} />
+      <PetStack_Navigator.Screen name="EditPet" component={EditPetScreen} />
       {/* Detalhes de pet importado do 4YouPet */}
-      <DashboardStack_Navigator.Screen name="FourYouPetPet" component={FourYouPetPetScreen} options={{ animation: 'slide_from_right' }} />
+      <PetStack_Navigator.Screen
+        name="FourYouPetPet"
+        component={FourYouPetPetScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
       {/* Edição de pet do 4YouPet */}
-      <DashboardStack_Navigator.Screen name="EditFourYouPet" component={EditFourYouPetScreen} options={{ animation: 'slide_from_right' }} />
+      <PetStack_Navigator.Screen
+        name="EditFourYouPet"
+        component={EditFourYouPetScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
       {/* Carteira digital de pet do 4YouPet */}
-      <DashboardStack_Navigator.Screen name="FourYouPetCard" component={FourYouPetCardScreen} options={{ animation: 'fade_from_bottom' }} />
+      <PetStack_Navigator.Screen
+        name="FourYouPetCard"
+        component={FourYouPetCardScreen}
+        options={{ animation: 'fade_from_bottom' }}
+      />
       {/* Gerenciamento de vacinas de um pet */}
-      <DashboardStack_Navigator.Screen name="Vaccines" component={VaccinesScreen} options={{ animation: 'slide_from_right' }} />
+      <PetStack_Navigator.Screen
+        name="Vaccines"
+        component={VaccinesScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
       {/* Prontuário médico do pet */}
-      <DashboardStack_Navigator.Screen name="Prontuario" component={ProntuarioScreen} options={{ animation: 'slide_from_right' }} />
+      <PetStack_Navigator.Screen
+        name="Prontuario"
+        component={ProntuarioScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
       {/* Controle de peso do pet */}
-      <DashboardStack_Navigator.Screen name="Pesos" component={PesosScreen} options={{ animation: 'slide_from_right' }} />
-    </DashboardStack_Navigator.Navigator>
+      <PetStack_Navigator.Screen
+        name="Pesos"
+        component={PesosScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+    </PetStack_Navigator.Navigator>
   );
 }
 
 /**
- * MyPetsStack — stack interno da aba "Meus Pets".
- * Gerencia a lista de pets e navegação para card, edição e vacinas.
+ * DashboardStack — wrapper do PetStack na aba "Início" (tela inicial: lista de pets).
+ */
+function DashboardStack() {
+  return <PetStack initialRoute="Dashboard" />;
+}
+
+/**
+ * MyPetsStack — wrapper do PetStack na aba "Meus Pets" (tela inicial: lista completa).
  */
 function MyPetsStack() {
-  return (
-    <MyPetsStack_Navigator.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-        animationDuration: 300,
-      }}
-    >
-      <MyPetsStack_Navigator.Screen name="MyPetsList" component={MyPetsScreen} />
-      <MyPetsStack_Navigator.Screen name="NewPet" component={NewPetScreen} />
-      <MyPetsStack_Navigator.Screen name="PetCard" component={PetCardScreen} options={{ animation: 'fade_from_bottom' }} />
-      <MyPetsStack_Navigator.Screen name="EditPet" component={EditPetScreen} />
-      <MyPetsStack_Navigator.Screen name="FourYouPetPet" component={FourYouPetPetScreen} options={{ animation: 'slide_from_right' }} />
-      <MyPetsStack_Navigator.Screen name="EditFourYouPet" component={EditFourYouPetScreen} options={{ animation: 'slide_from_right' }} />
-      <MyPetsStack_Navigator.Screen name="FourYouPetCard" component={FourYouPetCardScreen} options={{ animation: 'fade_from_bottom' }} />
-      <MyPetsStack_Navigator.Screen name="Vaccines" component={VaccinesScreen} options={{ animation: 'slide_from_right' }} />
-      <MyPetsStack_Navigator.Screen name="Prontuario" component={ProntuarioScreen} options={{ animation: 'slide_from_right' }} />
-      <MyPetsStack_Navigator.Screen name="Pesos" component={PesosScreen} options={{ animation: 'slide_from_right' }} />
-    </MyPetsStack_Navigator.Navigator>
-  );
+  return <PetStack initialRoute="MyPetsList" />;
 }
 
 /**
@@ -175,8 +203,8 @@ function MyPetsStack() {
  */
 function ProfileStack() {
   return (
-    <ProfileStack_Navigator.Navigator 
-      screenOptions={{ 
+    <ProfileStack_Navigator.Navigator
+      screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
         animationDuration: 300,
@@ -218,67 +246,57 @@ function MainTabs() {
           }
 
           // iOS usa tamanho fixo maior para melhor visibilidade
-          return <Ionicons name={iconName} size={Platform.OS === 'ios' ? 28 : size} color={color} />;
+          return (
+            <Ionicons name={iconName} size={Platform.OS === 'ios' ? 28 : size} color={color} />
+          );
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.gray500,
-        tabBarStyle: Platform.OS === 'ios' ? {
-          backgroundColor: 'rgba(255,255,255,0.98)',
-          borderTopWidth: 1,
-          borderTopColor: 'rgba(0,0,0,0.08)',
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 90,
-          paddingTop: 12,
-          paddingBottom: 28,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.08,
-          shadowRadius: 10,
-        } : {
-          backgroundColor: '#fff',
-          borderTopWidth: 0,
-          elevation: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.06,
-          shadowRadius: 12,
-          height: 80,
-          paddingTop: 10,
-          paddingBottom: 20,
-        },
-        tabBarLabelStyle: Platform.OS === 'ios' ? {
-          fontSize: 10,
-          fontWeight: '500',
-          letterSpacing: 0.1,
-        } : {
-          fontSize: 12,
-          fontWeight: '500',
-        },
+        // A tab bar ocupa espaço no layout nas duas plataformas (não é absoluta):
+        // assim o conteúdo das telas nunca fica atrás dela.
+        tabBarStyle:
+          Platform.OS === 'ios'
+            ? {
+                backgroundColor: 'rgba(255,255,255,0.98)',
+                borderTopWidth: 1,
+                borderTopColor: 'rgba(0,0,0,0.08)',
+                height: 90,
+                paddingTop: 12,
+                paddingBottom: 28,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -3 },
+                shadowOpacity: 0.08,
+                shadowRadius: 10,
+              }
+            : {
+                backgroundColor: '#fff',
+                borderTopWidth: 0,
+                elevation: 10,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -4 },
+                shadowOpacity: 0.06,
+                shadowRadius: 12,
+                height: 80,
+                paddingTop: 10,
+                paddingBottom: 20,
+              },
+        tabBarLabelStyle:
+          Platform.OS === 'ios'
+            ? {
+                fontSize: 10,
+                fontWeight: '500',
+                letterSpacing: 0.1,
+              }
+            : {
+                fontSize: 12,
+                fontWeight: '500',
+              },
       })}
     >
-      <Tab.Screen
-        name="HomeTab"
-        component={DashboardStack}
-        options={{ tabBarLabel: 'Início' }}
-      />
-      <Tab.Screen
-        name="MyPetsTab"
-        component={MyPetsStack}
-        options={{ tabBarLabel: 'Meus Pets' }}
-      />
-      <Tab.Screen
-        name="SearchTab"
-        component={SearchScreen}
-        options={{ tabBarLabel: 'Buscar' }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileStack}
-        options={{ tabBarLabel: 'Perfil' }}
-      />
+      <Tab.Screen name="HomeTab" component={DashboardStack} options={{ tabBarLabel: 'Início' }} />
+      <Tab.Screen name="MyPetsTab" component={MyPetsStack} options={{ tabBarLabel: 'Meus Pets' }} />
+      <Tab.Screen name="SearchTab" component={SearchScreen} options={{ tabBarLabel: 'Buscar' }} />
+      <Tab.Screen name="ProfileTab" component={ProfileStack} options={{ tabBarLabel: 'Perfil' }} />
     </Tab.Navigator>
   );
 }
@@ -290,16 +308,6 @@ export default function Navigation() {
   // Controla o estado de verificação de endereço para evitar flash de tela
   const [checkingAddress, setCheckingAddress] = useState(true);
 
-  // Toda vez que o estado de autenticação mudar, verifica o endereço do usuário
-  useEffect(() => {
-    if (user) {
-      checkUserAddress();
-    } else {
-      // Usuário deslogado — não precisa verificar endereço
-      setCheckingAddress(false);
-    }
-  }, [user]);
-
   /**
    * checkUserAddress — verifica se o usuário precisa passar pelo onboarding de endereço.
    *
@@ -309,7 +317,7 @@ export default function Navigation() {
    *  3. Se tiver pelo menos um endereço → vai direto para o app.
    *  4. Caso contrário → exibe o AddressOnboarding.
    */
-  const checkUserAddress = async () => {
+  const checkUserAddress = useCallback(async () => {
     if (!user) return;
 
     setCheckingAddress(true);
@@ -329,7 +337,15 @@ export default function Navigation() {
     } finally {
       setCheckingAddress(false);
     }
-  };
+  }, [user]);
+
+  // Toda vez que o estado de autenticação mudar, verifica o endereço do usuário.
+  // Usuário deslogado não precisa verificar — checkingAddress é ignorado no render abaixo.
+  useEffect(() => {
+    if (user) {
+      checkUserAddress();
+    }
+  }, [user, checkUserAddress]);
 
   // Chamado pelo AddressOnboarding quando o endereço é salvo ou pulado
   const onAddressSaved = () => {
@@ -338,7 +354,7 @@ export default function Navigation() {
 
   // Aguarda o carregamento da sessão e da verificação de endereço antes de renderizar
   // Retorna null para evitar flash de tela incorreta durante a inicialização
-  if (loading || checkingAddress || (user && hasAddress === null)) {
+  if (loading || (user && (checkingAddress || hasAddress === null))) {
     return null;
   }
 
@@ -346,7 +362,11 @@ export default function Navigation() {
     <NavigationContainer>
       {user ? (
         // Usuário autenticado: vai para o app principal ou para o onboarding de endereço
-        hasAddress ? <MainTabs /> : <AddressOnboarding onComplete={onAddressSaved} />
+        hasAddress ? (
+          <MainTabs />
+        ) : (
+          <AddressOnboarding onComplete={onAddressSaved} />
+        )
       ) : (
         // Usuário não autenticado: exibe o fluxo de login/cadastro
         <AuthStack />

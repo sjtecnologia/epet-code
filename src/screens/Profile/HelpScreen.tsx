@@ -1,4 +1,4 @@
-﻿/**
+/**
  * HelpScreen — tela de ajuda e perguntas frequentes (FAQ).
  *
  * Exibe perguntas agrupadas por categoria em um acordeão animado.
@@ -39,11 +39,13 @@ const faqData = [
     questions: [
       {
         question: 'O que é o e-Pet?',
-        answer: 'O e-Pet é um aplicativo de carteira digital para pets. Você pode cadastrar seus animais de estimação, gerar QR Codes de identificação e compartilhar as informações de contato caso o pet seja encontrado.',
+        answer:
+          'O e-Pet é um aplicativo de carteira digital para pets. Você pode cadastrar seus animais de estimação, gerar QR Codes de identificação e compartilhar as informações de contato caso o pet seja encontrado.',
       },
       {
         question: 'O app é gratuito?',
-        answer: 'Sim! O e-Pet é totalmente gratuito para cadastro de pets e geração de carteiras digitais.',
+        answer:
+          'Sim! O e-Pet é totalmente gratuito para cadastro de pets e geração de carteiras digitais.',
       },
       {
         question: 'Quantos pets posso cadastrar?',
@@ -56,15 +58,18 @@ const faqData = [
     questions: [
       {
         question: 'Como cadastrar um pet?',
-        answer: 'Na tela inicial, toque no botão "+" para adicionar um novo pet. Preencha as informações como nome, espécie, raça e dados do tutor. Você também pode adicionar uma foto.',
+        answer:
+          'Na tela inicial, toque no botão "+" para adicionar um novo pet. Preencha as informações como nome, espécie, raça e dados do tutor. Você também pode adicionar uma foto.',
       },
       {
         question: 'O que é o Pet ID?',
-        answer: 'O Pet ID é um identificador único do seu pet no formato Pet-XXX-XXX. Ele é gerado automaticamente ao cadastrar e pode ser usado para identificação.',
+        answer:
+          'O Pet ID é um identificador único do seu pet no formato Pet-XXX-XXX. Ele é gerado automaticamente ao cadastrar e pode ser usado para identificação.',
       },
       {
         question: 'Como adicionar foto do pet?',
-        answer: 'Ao cadastrar ou editar um pet, toque na área da foto para escolher entre tirar uma nova foto ou selecionar da galeria.',
+        answer:
+          'Ao cadastrar ou editar um pet, toque na área da foto para escolher entre tirar uma nova foto ou selecionar da galeria.',
       },
     ],
   },
@@ -73,11 +78,13 @@ const faqData = [
     questions: [
       {
         question: 'Para que serve o QR Code?',
-        answer: 'O QR Code contém as informações do pet e do tutor. Se alguém encontrar seu pet perdido, pode escanear o código para ver como entrar em contato.',
+        answer:
+          'O QR Code contém as informações do pet e do tutor. Se alguém encontrar seu pet perdido, pode escanear o código para ver como entrar em contato.',
       },
       {
         question: 'Como compartilhar a carteira do pet?',
-        answer: 'Na tela da carteira do pet, toque em "Compartilhar Carteira" para enviar as informações por WhatsApp, e-mail ou outras formas.',
+        answer:
+          'Na tela da carteira do pet, toque em "Compartilhar Carteira" para enviar as informações por WhatsApp, e-mail ou outras formas.',
       },
     ],
   },
@@ -86,15 +93,18 @@ const faqData = [
     questions: [
       {
         question: 'Como alterar meus dados?',
-        answer: 'Acesse a aba "Perfil" e toque em "Editar Perfil" para alterar seu nome, telefone, endereço e foto.',
+        answer:
+          'Acesse a aba "Perfil" e toque em "Editar Perfil" para alterar seu nome, telefone, endereço e foto.',
       },
       {
         question: 'Esqueci minha senha, o que fazer?',
-        answer: 'Na tela de login, toque em "Esqueceu a senha?" e informe seu e-mail. Você receberá um link para criar uma nova senha.',
+        answer:
+          'Na tela de login, toque em "Esqueceu a senha?" e informe seu e-mail. Você receberá um link para criar uma nova senha.',
       },
       {
         question: 'Como excluir minha conta?',
-        answer: 'Acesse Perfil > Privacidade > Excluir Meus Dados. Você receberá um e-mail de confirmação antes da exclusão.',
+        answer:
+          'Acesse Perfil > Privacidade > Excluir Meus Dados. Você receberá um e-mail de confirmação antes da exclusão.',
       },
     ],
   },
@@ -139,7 +149,7 @@ export default function HelpScreen({ navigation }: Props) {
 
         {/* FAQ Categories */}
         <Text style={styles.sectionTitle}>Perguntas Frequentes</Text>
-        
+
         {faqData.map((category) => (
           <View key={category.category} style={styles.categoryContainer}>
             <TouchableOpacity
@@ -169,7 +179,7 @@ export default function HelpScreen({ navigation }: Props) {
                         color={colors.primary}
                       />
                     </TouchableOpacity>
-                    
+
                     {expandedQuestion === item.question && (
                       <Text style={styles.answerText}>{item.answer}</Text>
                     )}
@@ -187,7 +197,7 @@ export default function HelpScreen({ navigation }: Props) {
             style={styles.contactItem}
             onPress={() =>
               Linking.openURL('mailto:support.epet@gmail.com?subject=Suporte e-Pet').catch(() =>
-                Alert.alert('Erro', 'Não foi possível abrir o aplicativo de e-mail.')
+                Alert.alert('Erro', 'Não foi possível abrir o aplicativo de e-mail.'),
               )
             }
           >

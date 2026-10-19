@@ -6,6 +6,9 @@
  * é uma falha de privacidade — estes testes garantem que o conjunto de
  * campos enviado ao Firestore permanece restrito ao allowlist.
  */
+import { setDoc, deleteDoc, doc } from 'firebase/firestore';
+import { syncPublicPet, removePublicPet, PublicPetSource } from '../src/lib/publicPet';
+
 jest.mock('../src/lib/firebase', () => ({ firestore: {} }));
 
 jest.mock('firebase/firestore', () => ({
@@ -15,9 +18,6 @@ jest.mock('firebase/firestore', () => ({
     path: `${collection}/${id}`,
   })),
 }));
-
-import { setDoc, deleteDoc, doc } from 'firebase/firestore';
-import { syncPublicPet, removePublicPet, PublicPetSource } from '../src/lib/publicPet';
 
 const setDocMock = setDoc as jest.Mock;
 const deleteDocMock = deleteDoc as jest.Mock;

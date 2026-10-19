@@ -19,7 +19,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,7 +32,6 @@ import { Pet } from '../../types/database.types';
 import { DashboardStackParamList } from '../../types/navigation.types';
 import { colors } from '../../constants/colors';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 export const lastPetKey = (uid: string) => `@epet_last_pet_${uid}`;
 
 /** Produto exibido no carrossel da coleção 'products' do 4YouPet */
@@ -55,9 +54,10 @@ export default function DashboardScreen({ navigation }: Props) {
   const carouselRef = useRef<FlatList>(null);
   const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
 
   /** Conta o total de pets do usuário (e-Pet + 4YouPet sem duplicatas) */
-  const fetchTotalPets = async () => {
+  const fetchTotalPets = useCallback(async () => {
     if (!user) return;
     try {
       const firebaseUid = firebaseAuth.currentUser?.uid;
@@ -66,9 +66,12 @@ export default function DashboardScreen({ navigation }: Props) {
 
       let fourYouCount = 0;
       if (firebaseUid) {
-        const fourYouQuery = query(collection(firestore, 'pet'), where('user_id', '==', firebaseUid));
+        const fourYouQuery = query(
+          collection(firestore, 'pet'),
+          where('user_id', '==', firebaseUid),
+        );
         const fourYouSnapshot = await getDocs(fourYouQuery);
-        fourYouCount = fourYouSnapshot.docs.filter(d => {
+        fourYouCount = fourYouSnapshot.docs.filter((d) => {
           const data = d.data();
           // Exclui mirrors de pets e-Pet (com epet_id), mesmo que sejam órfãos
           return !data.deleted && !data.epet_id;
@@ -78,28 +81,31 @@ export default function DashboardScreen({ navigation }: Props) {
     } catch (err) {
       console.error('Erro ao contar pets:', err);
     }
-  };
+  }, [user]);
 
   /** Busca até 10 produtos da coleção 'products' do 4YouPet para o carrossel */
-  const fetchCarousel = async () => {
+  const fetchCarousel = useCallback(async () => {
     try {
       setLoadingCarousel(true);
       const productsQuery = query(collection(firestore4YouPet, 'products'), limit(10));
       const snapshot = await getDocs(productsQuery);
-      setCarouselItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setCarouselItems(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     } catch (err) {
       console.error('Erro ao buscar produtos:', err);
     } finally {
       setLoadingCarousel(false);
     }
-  };
+  }, []);
 
   /** Carrega o último pet acessado salvo no AsyncStorage e valida se ainda existe no Firestore */
-  const loadLastPet = async () => {
+  const loadLastPet = useCallback(async () => {
     if (!user) return;
     try {
       const data = await AsyncStorage.getItem(lastPetKey(user.uid));
-      if (!data) { setLastPet(null); return; }
+      if (!data) {
+        setLastPet(null);
+        return;
+      }
       const cached: Pet = JSON.parse(data);
       // Verifica se o pet ainda existe no Firestore antes de exibir
       const petSnap = await getDoc(doc(firestore, 'pets', cached.id));
@@ -111,28 +117,27 @@ export default function DashboardScreen({ navigation }: Props) {
       }
     } catch (err) {
       console.error('Erro ao carregar último pet:', err);
-      setLastPet(null);
     }
-  };
+  }, [user]);
 
   // Recarrega contador e último pet toda vez que a tela entra em foco
   useFocusEffect(
     useCallback(() => {
       fetchTotalPets();
       loadLastPet();
-    }, [user])
+    }, [fetchTotalPets, loadLastPet]),
   );
 
   // Busca o carrossel apenas na montagem do componente
   useEffect(() => {
     fetchCarousel();
-  }, []);
+  }, [fetchCarousel]);
 
   // Auto-scroll do carrossel a cada 3 segundos
   useEffect(() => {
     if (carouselItems.length === 0) return;
     autoScrollRef.current = setInterval(() => {
-      setActiveIndex(prev => {
+      setActiveIndex((prev) => {
         const next = (prev + 1) % carouselItems.length;
         carouselRef.current?.scrollToIndex({ index: next, animated: true });
         return next;
@@ -143,7 +148,7 @@ export default function DashboardScreen({ navigation }: Props) {
     };
   }, [carouselItems.length]);
 
-  const CAROUSEL_ITEM_WIDTH = SCREEN_WIDTH - 48;
+  const CAROUSEL_ITEM_WIDTH = width - 48;
 
   const renderCarouselItem = ({ item }: { item: CarouselProduct }) => {
     const imageUrl = Array.isArray(item.images) ? item.images[0] : item.images;
@@ -158,7 +163,9 @@ export default function DashboardScreen({ navigation }: Props) {
         )}
         {item.name ? (
           <View style={styles.carouselLabelContainer}>
-            <Text style={styles.carouselLabel} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.carouselLabel} numberOfLines={1}>
+              {item.name}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -168,10 +175,7 @@ export default function DashboardScreen({ navigation }: Props) {
   // ─── Render principal ───────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Cabeçalho com logo */}
         <View style={Platform.OS === 'ios' ? styles.headerIOS : styles.header}>
           <Image
@@ -211,22 +215,20 @@ export default function DashboardScreen({ navigation }: Props) {
                 ref={carouselRef}
                 data={carouselItems}
                 renderItem={renderCarouselItem}
-                keyExtractor={item => item.id}
+                keyExtractor={(item) => item.id}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 snapToInterval={CAROUSEL_ITEM_WIDTH}
                 decelerationRate="fast"
                 contentContainerStyle={{ paddingHorizontal: 0 }}
-                onMomentumScrollEnd={e => {
-                  const idx = Math.round(
-                    e.nativeEvent.contentOffset.x / CAROUSEL_ITEM_WIDTH
-                  );
+                onMomentumScrollEnd={(e) => {
+                  const idx = Math.round(e.nativeEvent.contentOffset.x / CAROUSEL_ITEM_WIDTH);
                   setActiveIndex(idx);
                   // Reinicia o auto-scroll após interação manual
                   if (autoScrollRef.current) clearInterval(autoScrollRef.current);
                   autoScrollRef.current = setInterval(() => {
-                    setActiveIndex(prev => {
+                    setActiveIndex((prev) => {
                       const next = (prev + 1) % carouselItems.length;
                       carouselRef.current?.scrollToIndex({ index: next, animated: true });
                       return next;
@@ -242,10 +244,7 @@ export default function DashboardScreen({ navigation }: Props) {
               {/* Indicadores de página (dots) */}
               <View style={styles.dotsRow}>
                 {carouselItems.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[styles.dot, i === activeIndex && styles.dotActive]}
-                  />
+                  <View key={i} style={[styles.dot, i === activeIndex && styles.dotActive]} />
                 ))}
               </View>
             </>
@@ -290,7 +289,9 @@ export default function DashboardScreen({ navigation }: Props) {
               </View>
               <View style={styles.lastPetInfo}>
                 <Text style={styles.emptyPetTitle}>Nenhum pet cadastrado</Text>
-                <Text style={styles.emptyPetSubtitle}>Toque aqui para adicionar seu primeiro pet</Text>
+                <Text style={styles.emptyPetSubtitle}>
+                  Toque aqui para adicionar seu primeiro pet
+                </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
             </TouchableOpacity>
@@ -307,7 +308,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
   },
   scrollContent: {
-    paddingBottom: Platform.OS === 'ios' ? 110 : 32,
+    paddingBottom: 32,
     backgroundColor: colors.backgroundLight,
   },
   header: {

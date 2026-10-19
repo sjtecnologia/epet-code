@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FourYouPetPetScreen — exibe os detalhes de um pet importado do 4YouPet (Firestore).
  *
  * Se o pet ainda não possuír um pet_id, gera um automaticamente e
@@ -6,7 +6,15 @@
  * e permite navegar para a tela de edição.
  */
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, StyleSheet, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  StyleSheet,
+  Platform,
+} from 'react-native';
 import { Alert } from '../../lib/alert';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -17,7 +25,7 @@ import { firestore } from '../../lib/firebase';
 import { DashboardStackParamList } from '../../types/navigation.types';
 import { FourYouPetAplic } from '../../types/database.types';
 import { colors } from '../../constants/colors';
-import { generatePetId, toDate } from '../../lib/petForm';
+import { generatePetId, formatDisplayDate, calculateAgeYearMonths } from '../../lib/petForm';
 
 type Props = {
   navigation: NativeStackNavigationProp<DashboardStackParamList, 'FourYouPetPet'>;
@@ -26,42 +34,22 @@ type Props = {
 
 export default function FourYouPetPetScreen({ navigation, route }: Props) {
   const { pet } = route.params;
-  const [petId, setPetId] = useState<string>(pet.pet_id || '');
+  // Se o pet não tem pet_id, gera um novo id como estado inicial
+  const [petId] = useState<string>(() => pet.pet_id || generatePetId());
 
-  // Se o pet não tem pet_id, gera um e salva no Firestore
+  // Persiste o pet_id gerado no Firestore quando não existia
   useEffect(() => {
     if (!pet.pet_id) {
-      const newId = generatePetId();
-      setPetId(newId);
       const petRef = doc(firestore, 'pet', pet.id);
-      updateDoc(petRef, { pet_id: newId }).catch(console.error);
+      updateDoc(petRef, { pet_id: petId }).catch(console.error);
     }
-  }, []);
+  }, [pet.id, pet.pet_id, petId]);
 
   /** Copia o ID do pet para a área de transferência */
   const copyPetId = async () => {
     if (!petId) return;
     await Clipboard.setStringAsync(petId);
     Alert.alert('Copiado!', 'ID do pet copiado para a área de transferência.');
-  };
-
-  /** Converte um Firestore Timestamp ou string em data no padrão DD/MM/AAAA */
-  const formatDate = (timestamp: unknown): string => {
-    const date = toDate(timestamp);
-    return date ? date.toLocaleDateString('pt-BR') : 'Não informado';
-  };
-
-  /** Calcula a idade do pet a partir de um Timestamp Firestore ou string */
-  const calculateAge = (timestamp: unknown): string => {
-    const birth = toDate(timestamp);
-    if (!birth) return '';
-    const today = new Date();
-    let years = today.getFullYear() - birth.getFullYear();
-    let months = today.getMonth() - birth.getMonth();
-    if (months < 0) { years--; months += 12; }
-    if (years > 0) return `${years} ano${years > 1 ? 's' : ''}`;
-    if (months > 0) return `${months} mês${months > 1 ? 'es' : ''}`;
-    return 'Filhote';
   };
 
   // Desaninha as aplicações de vacinas em uma lista plana para exibição
@@ -73,8 +61,8 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
     });
   });
 
-  const appliedVaccines = allApplications.filter(a => a.aplicated);
-  const pendingVaccines = allApplications.filter(a => !a.aplicated);
+  const appliedVaccines = allApplications.filter((a) => a.aplicated);
+  const pendingVaccines = allApplications.filter((a) => !a.aplicated);
 
   return (
     <View style={styles.container}>
@@ -83,7 +71,10 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{pet.name}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('EditFourYouPet', { pet: { ...pet, pet_id: petId } })} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('EditFourYouPet', { pet: { ...pet, pet_id: petId } })}
+          style={styles.backButton}
+        >
           <Ionicons name="create-outline" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -105,8 +96,8 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
           </View>
 
           <Text style={styles.petName}>{pet.name}</Text>
-          {calculateAge(pet.birth) ? (
-            <Text style={styles.petAge}>{calculateAge(pet.birth)}</Text>
+          {calculateAgeYearMonths(pet.birth) ? (
+            <Text style={styles.petAge}>{calculateAgeYearMonths(pet.birth)}</Text>
           ) : null}
         </View>
 
@@ -115,7 +106,9 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
           <View style={styles.petIdRow}>
             <Ionicons name="id-card" size={18} color={colors.primary} />
             <Text style={styles.petIdLabel}>ID do Pet:</Text>
-            <Text style={styles.petIdValue} numberOfLines={1}>{petId || '...'}</Text>
+            <Text style={styles.petIdValue} numberOfLines={1}>
+              {petId || '...'}
+            </Text>
           </View>
           <TouchableOpacity style={styles.copyIdButton} onPress={copyPetId}>
             <Ionicons name="copy-outline" size={18} color={colors.primary} />
@@ -137,7 +130,7 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
           <Text style={styles.sectionTitle}>Informações</Text>
           <View style={styles.infoGrid}>
             <InfoItem icon="paw" label="Raça" value={pet.breed || 'Não informado'} />
-            <InfoItem icon="calendar" label="Nascimento" value={formatDate(pet.birth)} />
+            <InfoItem icon="calendar" label="Nascimento" value={formatDisplayDate(pet.birth)} />
             <InfoItem icon="resize" label="Porte" value={pet.size || 'Não informado'} />
             <InfoItem icon="color-palette" label="Cor" value={pet.color || 'Não informado'} />
             <InfoItem icon="cut" label="Castrado" value={pet.castrado ? 'Sim' : 'Não'} />
@@ -162,16 +155,14 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
                   <Ionicons name="checkmark-circle" size={22} color="#22c55e" />
                 </View>
                 <View style={styles.vaccineInfo}>
-                  <Text style={styles.vaccineName}>Vacina {aplic.vacinaIndex} — Dose {idx + 1}</Text>
-                  <Text style={styles.vaccineDate}>
-                    Aplicada em: {formatDate(aplic.dataaplicacao)}
+                  <Text style={styles.vaccineName}>
+                    Vacina {aplic.vacinaIndex} — Dose {idx + 1}
                   </Text>
-                  {aplic.marca && (
-                    <Text style={styles.vaccineMeta}>Marca: {aplic.marca}</Text>
-                  )}
-                  {aplic.lote && (
-                    <Text style={styles.vaccineMeta}>Lote: {aplic.lote}</Text>
-                  )}
+                  <Text style={styles.vaccineDate}>
+                    Aplicada em: {formatDisplayDate(aplic.dataaplicacao)}
+                  </Text>
+                  {aplic.marca && <Text style={styles.vaccineMeta}>Marca: {aplic.marca}</Text>}
+                  {aplic.lote && <Text style={styles.vaccineMeta}>Lote: {aplic.lote}</Text>}
                 </View>
               </View>
             ))
@@ -194,9 +185,11 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
                   <Ionicons name="time-outline" size={22} color="#f59e0b" />
                 </View>
                 <View style={styles.vaccineInfo}>
-                  <Text style={styles.vaccineName}>Vacina {aplic.vacinaIndex} — Dose {idx + 1}</Text>
+                  <Text style={styles.vaccineName}>
+                    Vacina {aplic.vacinaIndex} — Dose {idx + 1}
+                  </Text>
                   <Text style={styles.vaccineDate}>
-                    Prevista: {formatDate(aplic.dataaplicacao)}
+                    Prevista: {formatDisplayDate(aplic.dataaplicacao)}
                   </Text>
                 </View>
               </View>
@@ -210,7 +203,15 @@ export default function FourYouPetPetScreen({ navigation, route }: Props) {
   );
 }
 
-function InfoItem({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+function InfoItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+}) {
   return (
     <View style={styles.infoItem}>
       <Ionicons name={icon} size={18} color={colors.primary} />

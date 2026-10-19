@@ -1,4 +1,4 @@
-﻿/**
+/**
  * EditPetScreen — tela de edição dos dados de um pet e-Pet.
  *
  * Pré-popula o formulário com os dados existentes (recebidos via navegação),
@@ -9,23 +9,14 @@
  * A UI de formulário é compartilhada com NewPetScreen via
  * src/components/petForm.
  */
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { doc, updateDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { firestore, storage } from '../../lib/firebase';
+import { firestore } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Address } from '../../types/database.types';
 import { colors } from '../../constants/colors';
@@ -33,11 +24,10 @@ import { DashboardStackParamList } from '../../types/navigation.types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lastPetKey } from './DashboardScreen';
 import { removePublicPet, syncPublicPet } from '../../lib/publicPet';
-import {
-  SpeciesId,
-  formatDateForDB,
-  buildFullAddress,
-} from '../../lib/petForm';
+import { uploadImageToStorage } from '../../lib/storage';
+import { SpeciesId, formatDateForDB, buildFullAddress } from '../../lib/petForm';
+import { isValidCustomSpecies } from '../../lib/species';
+import { useSpeciesValidation } from '../../hooks/useSpeciesValidation';
 import {
   PetFormHeader,
   PhotoPicker,
@@ -61,54 +51,63 @@ type Props = {
 // Parse date from various formats
 const parseDate = (dateString: string | null): Date => {
   if (!dateString) return new Date();
-  
+
   // Try YYYY-MM-DD format (from database)
   if (dateString.includes('-')) {
     const date = new Date(dateString + 'T12:00:00');
     if (!isNaN(date.getTime())) return date;
   }
-  
+
   // Try DD/MM/YYYY format (from display)
   if (dateString.includes('/')) {
     const parts = dateString.split('/');
     if (parts.length === 3) {
-      const date = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]), 12, 0, 0);
+      const date = new Date(
+        parseInt(parts[2]),
+        parseInt(parts[1]) - 1,
+        parseInt(parts[0]),
+        12,
+        0,
+        0,
+      );
       if (!isNaN(date.getTime())) return date;
     }
   }
-  
+
   return new Date();
 };
 
 /** Desmonta a string de endereço completo em campos separados (rua, número, complemento) */
 // Parse address into separate fields
-const parseAddress = (address: string | null): { street: string; number: string; complement: string } => {
+const parseAddress = (
+  address: string | null,
+): { street: string; number: string; complement: string } => {
   if (!address) return { street: '', number: '', complement: '' };
-  
+
   // Try to parse "Rua, Número - Complemento" or "Rua, Número, Complemento" format
-  const parts = address.split(/[,-]/).map(p => p.trim());
-  
+  const parts = address.split(/[,-]/).map((p) => p.trim());
+
   if (parts.length >= 3) {
     return { street: parts[0], number: parts[1], complement: parts.slice(2).join(', ') };
   } else if (parts.length === 2) {
     return { street: parts[0], number: parts[1], complement: '' };
   }
-  
+
   return { street: address, number: '', complement: '' };
 };
 
 export default function EditPetScreen({ navigation, route }: Props) {
-  const { pet } = route.params;              // dados atuais do pet a editar
-  const { user } = useAuth();               // usuário autenticado
-  const [loading, setLoading] = useState(false);                     // envio em andamento
+  const { pet } = route.params; // dados atuais do pet a editar
+  const { user } = useAuth(); // usuário autenticado
+  const [loading, setLoading] = useState(false); // envio em andamento
   const [photoUri, setPhotoUri] = useState<string | null>(pet.photo_url); // URL/URI da foto atual
-  const [photoChanged, setPhotoChanged] = useState(false);           // indica se a foto foi trocada
-  
+  const [photoChanged, setPhotoChanged] = useState(false); // indica se a foto foi trocada
+
   // --- Data de nascimento -------------------------------------------------------
   const [birthDate, setBirthDate] = useState<Date>(parseDate(pet.birth_date));
-  
+
   // --- Endereço ------------------------------------------------------------------
-  const parsedAddress = parseAddress(pet.address);                   // desmonta o endereço salvo
+  const parsedAddress = parseAddress(pet.address); // desmonta o endereço salvo
   const [street, setStreet] = useState(parsedAddress.street);
   const [number, setNumber] = useState(parsedAddress.number);
   const [complement, setComplement] = useState(parsedAddress.complement);
@@ -119,9 +118,11 @@ export default function EditPetScreen({ navigation, route }: Props) {
 
   // --- Espécie personalizada ---------------------------------------------------
   const [customSpecies, setCustomSpecies] = useState(pet.custom_species || '');
-  const [validatingSpecies, setValidatingSpecies] = useState(false);
-  const [speciesValidationResult, setSpeciesValidationResult] = useState<'valid' | 'invalid' | null>(null);
-  const [validationTimeout, setValidationTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    validating: validatingSpecies,
+    result: speciesValidationResult,
+    validate: validateCustomSpeciesDebounced,
+  } = useSpeciesValidation();
 
   // Seleção de foto (galeria/câmera) compartilhada — marca a foto como alterada
   const { showPhotoOptions } = usePhotoPicker(
@@ -134,32 +135,32 @@ export default function EditPetScreen({ navigation, route }: Props) {
       alertMessage: 'Como você deseja alterar a foto?',
       galleryDeniedMessage: 'Precisamos de acesso à galeria para adicionar foto do pet.',
       cameraDeniedMessage: 'Precisamos de acesso à câmera para tirar foto do pet.',
-    }
+    },
   );
 
-  useEffect(() => {
-    fetchSavedAddresses();
-  }, []);
-
   /** Busca os endereços salvos do usuário para o seletor de endereço */
-  const fetchSavedAddresses = async () => {
+  const fetchSavedAddresses = useCallback(async () => {
     if (!user) return;
 
     try {
       const snapshot = await getDocs(
         query(
           collection(firestore, 'users', user.uid, 'addresses'),
-          where('user_id', '==', user.uid)
-        )
+          where('user_id', '==', user.uid),
+        ),
       );
       const addrs = snapshot.docs
-        .map(d => ({ id: d.id, ...d.data() } as Address))
+        .map((d) => ({ id: d.id, ...d.data() }) as Address)
         .sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
       setSavedAddresses(addrs);
     } catch (err) {
       console.error('Erro ao buscar endereços:', err);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchSavedAddresses();
+  }, [fetchSavedAddresses]);
 
   /** Preenche os campos de endereço com o endereço selecionado no modal */
   const handleSelectAddress = (address: Address) => {
@@ -173,7 +174,7 @@ export default function EditPetScreen({ navigation, route }: Props) {
   const handleClearAddress = () => {
     setSelectedAddressId(null);
   };
-  
+
   const [formData, setFormData] = useState({
     name: pet.name,
     species: pet.species,
@@ -183,95 +184,6 @@ export default function EditPetScreen({ navigation, route }: Props) {
     ownerEmail: pet.owner_email || '',
     notes: pet.notes || '',
   });
-
-  /** Valida a espécie customizada com debounce de 800ms */
-  const validateCustomSpeciesDebounced = (species: string) => {
-    if (validationTimeout) {
-      clearTimeout(validationTimeout);
-    }
-
-    setSpeciesValidationResult(null);
-    
-    if (!species || species.trim().length < 2) {
-      setSpeciesValidationResult(null);
-      return;
-    }
-
-    const timeout = setTimeout(async () => {
-      const isValid = await validateCustomSpecies(species);
-      setSpeciesValidationResult(isValid ? 'valid' : 'invalid');
-    }, 800);
-
-    setValidationTimeout(timeout);
-  };
-
-  /** Verifica se a espécie está na lista de animais permitidos */
-  const validateCustomSpecies = async (species: string): Promise<boolean> => {
-    if (!species || species.trim().length < 2) return false;
-    
-    setValidatingSpecies(true);
-    try {
-      const validAnimals = [
-        'coelho', 'hamster', 'porquinho da índia', 'chinchila', 'ferret', 'furão',
-        'rato', 'camundongo', 'gerbil', 'esquilo', 'twister',
-        'tartaruga', 'jabuti', 'iguana', 'camaleão', 'cobra', 'lagarto', 'gecko', 'dragão barbudo',
-        'peixe', 'beta', 'goldfish', 'kinguio', 'guppy', 'neon', 'oscar', 'koi',
-        'periquito', 'papagaio', 'calopsita', 'canário', 'agapornis', 'cacatua', 'arara',
-        'galinha', 'pato', 'ganso', 'codorna', 'faisão',
-        'cavalo', 'égua', 'pônei', 'burro', 'jumento',
-        'cabra', 'ovelha', 'porco', 'mini pig', 'lhama', 'alpaca',
-        'vaca', 'boi', 'búfalo',
-        'porquinho', 'ouriço', 'sugar glider', 'miniporco',
-      ];
-
-      const normalized = species.toLowerCase().trim();
-      
-      const isInList = validAnimals.some(animal => {
-        return normalized === animal || normalized.includes(animal) || animal.includes(normalized);
-      });
-
-      if (!isInList) {
-        return false;
-      }
-
-      const invalidPatterns = [
-        /\d{3,}/,
-        /[!@#$%^&*()+=\[\]{};':"\\|,.<>?]/g,
-        /^[a-z]$/i,
-        /[0-9]/g,
-      ];
-
-      if (invalidPatterns.some(pattern => pattern.test(normalized))) {
-        return false;
-      }
-
-      if (normalized.length < 3 || normalized.length > 30) {
-        return false;
-      }
-
-      return true;
-    } finally {
-      setValidatingSpecies(false);
-    }
-  };
-
-  /** Faz upload da nova foto para o Firebase Storage e retorna a URL pública */
-  const uploadPhoto = async (uri: string): Promise<string | null> => {
-    try {
-      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-      const contentType = fileExt === 'png' ? 'image/png' : 'image/jpeg';
-      const fileName = `pet-photos/${user?.uid}/${Date.now()}.${fileExt}`;
-
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const storageRef = ref(storage, fileName);
-      await uploadBytes(storageRef, blob, { contentType });
-      return await getDownloadURL(storageRef);
-    } catch (error) {
-      console.error('Photo upload failed:', error);
-      return null;
-    }
-  };
 
   /**
    * handleUpdate — valida e persiste as alterações do pet no Firestore.
@@ -290,13 +202,19 @@ export default function EditPetScreen({ navigation, route }: Props) {
 
     if (formData.species === 'other') {
       if (speciesValidationResult === 'invalid') {
-        Alert.alert('Espécie inválida', 'Por favor, verifique o nome da espécie e tente novamente.');
+        Alert.alert(
+          'Espécie inválida',
+          'Por favor, verifique o nome da espécie e tente novamente.',
+        );
         return;
       }
       if (speciesValidationResult !== 'valid') {
-        const isValid = await validateCustomSpecies(customSpecies);
+        const isValid = isValidCustomSpecies(customSpecies);
         if (!isValid) {
-          Alert.alert('Espécie inválida', 'Por favor, verifique o nome da espécie e tente novamente.');
+          Alert.alert(
+            'Espécie inválida',
+            'Por favor, verifique o nome da espécie e tente novamente.',
+          );
           return;
         }
       }
@@ -307,7 +225,7 @@ export default function EditPetScreen({ navigation, route }: Props) {
     try {
       let photoUrl = pet.photo_url;
       if (photoChanged && photoUri && photoUri !== pet.photo_url) {
-        photoUrl = await uploadPhoto(photoUri);
+        photoUrl = (await uploadImageToStorage(photoUri, `pet-photos/${user!.uid}`)) ?? photoUrl;
       }
 
       const fullAddress = buildFullAddress(street, number, complement);
@@ -361,9 +279,9 @@ export default function EditPetScreen({ navigation, route }: Props) {
             try {
               // Deleta o documento espelho na coleção 'pet' (4YouPet), se existir
               const mirrorSnap = await getDocs(
-                query(collection(firestore, 'pet'), where('epet_id', '==', pet.id))
+                query(collection(firestore, 'pet'), where('epet_id', '==', pet.id)),
               );
-              await Promise.all(mirrorSnap.docs.map(d => deleteDoc(d.ref)));
+              await Promise.all(mirrorSnap.docs.map((d) => deleteDoc(d.ref)));
               // A ficha pública precisa ser removida antes do documento privado,
               // pois a regra valida a posse a partir do pet de origem.
               await removePublicPet(pet.pet_id);
@@ -377,18 +295,20 @@ export default function EditPetScreen({ navigation, route }: Props) {
                     if (cachedPet?.id === pet.id) {
                       await AsyncStorage.removeItem(lastPetKey(user.uid));
                     }
-                  } catch { /* ignora */ }
+                  } catch {
+                    /* ignora */
+                  }
                 }
               }
               navigation.popToTop();
-            } catch (err) {
+            } catch {
               Alert.alert('Erro', 'Não foi possível excluir o pet.');
             } finally {
               setLoading(false);
             }
           },
         },
-      ]
+      ],
     );
   };
 

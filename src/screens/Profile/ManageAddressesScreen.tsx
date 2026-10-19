@@ -1,11 +1,11 @@
-﻿/**
+/**
  * ManageAddressesScreen — tela de gerenciamento de endereços do usuário.
  *
  * Permite listar, adicionar, editar, excluir e definir o endereço padrão.
  * Usa a API ViaCEP para preenchimento automático a partir do CEP.
  * Os dados são persistidos na subcoleção 'users/{uid}/addresses' do Firestore.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,22 @@ import {
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  writeBatch,
+} from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Address } from '../../types/database.types';
 import { ProfileStackParamList } from '../../types/navigation.types';
+import { fetchAddressByCep, viaCepMessages } from '../../lib/viacep';
 import { colors } from '../../constants/colors';
 
 type Props = {
@@ -34,12 +45,12 @@ type Props = {
 
 export default function ManageAddressesScreen({ navigation }: Props) {
   const { user } = useAuth();
-  const [addresses, setAddresses] = useState<Address[]>([]);  // lista de endereços do usuário
+  const [addresses, setAddresses] = useState<Address[]>([]); // lista de endereços do usuário
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);          // modal de adicionar/editar endereço
+  const [showModal, setShowModal] = useState(false); // modal de adicionar/editar endereço
   const [editingAddress, setEditingAddress] = useState<Address | null>(null); // endereço em edição (null = novo)
   const [saving, setSaving] = useState(false);
-  const [searchingCep, setSearchingCep] = useState(false);    // indica consulta à API ViaCEP
+  const [searchingCep, setSearchingCep] = useState(false); // indica consulta à API ViaCEP
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -52,21 +63,20 @@ export default function ManageAddressesScreen({ navigation }: Props) {
     complement: '',
   });
 
-  useEffect(() => {
-    fetchAddresses();
-  }, []);
-
   /** Busca os endereços salvos do usuário no Firestore */
-  const fetchAddresses = async () => {
+  const fetchAddresses = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
     try {
       const snapshot = await getDocs(
-        query(collection(firestore, 'users', user.uid, 'addresses'), where('user_id', '==', user.uid))
+        query(
+          collection(firestore, 'users', user.uid, 'addresses'),
+          where('user_id', '==', user.uid),
+        ),
       );
       const data = snapshot.docs
-        .map(d => ({ id: d.id, ...d.data() } as Address))
+        .map((d) => ({ id: d.id, ...d.data() }) as Address)
         .sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
       setAddresses(data);
     } catch (err) {
@@ -74,33 +84,27 @@ export default function ManageAddressesScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchAddresses();
+  }, [fetchAddresses]);
 
   /**
    * searchCep — consulta a API pública ViaCEP para preencher o campo de rua
    * automaticamente a partir do CEP informado.
    */
   const searchCep = async () => {
-    if (formData.cep.replace(/\D/g, '').length !== 8) {
-      Alert.alert('Erro', 'CEP inválido. Digite 8 dígitos.');
+    setSearchingCep(true);
+    const result = await fetchAddressByCep(formData.cep);
+    setSearchingCep(false);
+
+    if (!result.ok) {
+      const { title, message } = viaCepMessages[result.error];
+      Alert.alert(title, message);
       return;
     }
-
-    setSearchingCep(true);
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${formData.cep.replace(/\D/g, '')}/json/`);
-      const data = await response.json();
-
-      if (data.erro) {
-        Alert.alert('Erro', 'CEP não encontrado');
-      } else {
-        setFormData(prev => ({ ...prev, street: data.logradouro || '' }));
-      }
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível buscar o CEP');
-    } finally {
-      setSearchingCep(false);
-    }
+    setFormData((prev) => ({ ...prev, street: result.logradouro }));
   };
 
   const openAddModal = () => {
@@ -162,7 +166,7 @@ export default function ManageAddressesScreen({ navigation }: Props) {
         setSuccessMessage('Endereço adicionado com sucesso!');
         setShowSuccessModal(true);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Erro', 'Ocorreu um erro ao salvar');
     } finally {
       setSaving(false);
@@ -170,38 +174,36 @@ export default function ManageAddressesScreen({ navigation }: Props) {
   };
 
   const handleDelete = (address: Address) => {
-    Alert.alert(
-      'Excluir endereço',
-      `Deseja excluir o endereço "${address.label}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteDoc(doc(firestore, 'users', user!.uid, 'addresses', address.id));
-              fetchAddresses();
-              setSuccessMessage('Endereço excluído!');
-              setShowSuccessModal(true);
-            } catch {
-              Alert.alert('Erro', 'Não foi possível excluir o endereço');
-            }
-          },
+    Alert.alert('Excluir endereço', `Deseja excluir o endereço "${address.label}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteDoc(doc(firestore, 'users', user!.uid, 'addresses', address.id));
+            fetchAddresses();
+            setSuccessMessage('Endereço excluído!');
+            setShowSuccessModal(true);
+          } catch {
+            Alert.alert('Erro', 'Não foi possível excluir o endereço');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleSetDefault = async (address: Address) => {
     try {
       const batch = writeBatch(firestore);
       // Remove default de todos
-      addresses.forEach(a => {
+      addresses.forEach((a) => {
         batch.update(doc(firestore, 'users', user!.uid, 'addresses', a.id), { is_default: false });
       });
       // Define o novo padrão
-      batch.update(doc(firestore, 'users', user!.uid, 'addresses', address.id), { is_default: true });
+      batch.update(doc(firestore, 'users', user!.uid, 'addresses', address.id), {
+        is_default: true,
+      });
       await batch.commit();
       fetchAddresses();
     } catch (err) {
@@ -252,10 +254,16 @@ export default function ManageAddressesScreen({ navigation }: Props) {
                   )}
                 </View>
                 <View style={styles.addressActions}>
-                  <TouchableOpacity onPress={() => openEditModal(address)} style={styles.actionButton}>
+                  <TouchableOpacity
+                    onPress={() => openEditModal(address)}
+                    style={styles.actionButton}
+                  >
                     <Ionicons name="create-outline" size={20} color={colors.gray600} />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDelete(address)} style={styles.actionButton}>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(address)}
+                    style={styles.actionButton}
+                  >
                     <Ionicons name="trash-outline" size={20} color="#EF4444" />
                   </TouchableOpacity>
                 </View>
@@ -281,7 +289,7 @@ export default function ManageAddressesScreen({ navigation }: Props) {
 
       {/* Modal de Adicionar/Editar */}
       <Modal visible={showModal} transparent animationType="slide">
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
@@ -297,7 +305,12 @@ export default function ManageAddressesScreen({ navigation }: Props) {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.inputContainer}>
-                <Ionicons name="pricetag-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+                <Ionicons
+                  name="pricetag-outline"
+                  size={20}
+                  color={colors.gray500}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.input}
                   placeholder="Nome (ex: Casa, Trabalho, Casa dos Pais)"
@@ -309,7 +322,12 @@ export default function ManageAddressesScreen({ navigation }: Props) {
 
               <View style={styles.cepContainer}>
                 <View style={[styles.inputContainer, { flex: 1 }]}>
-                  <Ionicons name="map-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+                  <Ionicons
+                    name="map-outline"
+                    size={20}
+                    color={colors.gray500}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="CEP"
@@ -334,7 +352,12 @@ export default function ManageAddressesScreen({ navigation }: Props) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Ionicons name="location-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+                <Ionicons
+                  name="location-outline"
+                  size={20}
+                  color={colors.gray500}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.input}
                   placeholder="Rua / Logradouro"
@@ -346,7 +369,12 @@ export default function ManageAddressesScreen({ navigation }: Props) {
 
               <View style={styles.rowInputs}>
                 <View style={[styles.inputContainer, { flex: 1 }]}>
-                  <Ionicons name="home-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+                  <Ionicons
+                    name="home-outline"
+                    size={20}
+                    color={colors.gray500}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Número"
@@ -358,7 +386,12 @@ export default function ManageAddressesScreen({ navigation }: Props) {
                 </View>
 
                 <View style={[styles.inputContainer, { flex: 1.5 }]}>
-                  <Ionicons name="business-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+                  <Ionicons
+                    name="business-outline"
+                    size={20}
+                    color={colors.gray500}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Complemento"
@@ -397,7 +430,12 @@ export default function ManageAddressesScreen({ navigation }: Props) {
       >
         <View style={styles.successOverlay}>
           <View style={styles.successModalCard}>
-            <Ionicons name="checkmark-circle" size={64} color="#10B981" style={{ marginBottom: 12 }} />
+            <Ionicons
+              name="checkmark-circle"
+              size={64}
+              color="#10B981"
+              style={{ marginBottom: 12 }}
+            />
             <Text style={styles.successTitle}>Pronto!</Text>
             <Text style={styles.successDescription}>{successMessage}</Text>
             <TouchableOpacity

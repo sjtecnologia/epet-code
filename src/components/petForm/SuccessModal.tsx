@@ -16,13 +16,7 @@ type Props = {
   onClose: () => void;
 };
 
-export default function SuccessModal({
-  visible,
-  title,
-  description,
-  buttonText,
-  onClose,
-}: Props) {
+export default function SuccessModal({ visible, title, description, buttonText, onClose }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.successOverlay}>

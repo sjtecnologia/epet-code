@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ProntuarioScreen — prontuário médico do pet.
  *
  * Lista registros clínicos (consultas, exames, procedimentos) e permite
@@ -21,12 +21,9 @@ import {
 } from 'react-native';
 import { Alert } from '../../lib/alert';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
-import {
-  collection, addDoc, getDocs, deleteDoc, doc, orderBy, query,
-} from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
 import { firestore } from '../../lib/firebase';
 import { colors } from '../../constants/colors';
 import { DashboardStackParamList } from '../../types/navigation.types';
@@ -49,12 +46,18 @@ const TIPOS = ['Consulta', 'Exame', 'Procedimento', 'Vacinação', 'Cirurgia', '
 
 const tipoIcon = (tipo: string): keyof typeof Ionicons.glyphMap => {
   switch (tipo) {
-    case 'Consulta':    return 'medkit-outline';
-    case 'Exame':       return 'document-text';
-    case 'Procedimento':return 'medical';
-    case 'Vacinação':   return 'bandage';
-    case 'Cirurgia':    return 'cut';
-    default:            return 'clipboard';
+    case 'Consulta':
+      return 'medkit-outline';
+    case 'Exame':
+      return 'document-text';
+    case 'Procedimento':
+      return 'medical';
+    case 'Vacinação':
+      return 'bandage';
+    case 'Cirurgia':
+      return 'cut';
+    default:
+      return 'clipboard';
   }
 };
 
@@ -71,7 +74,7 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
   const [veterinario, setVeterinario] = useState('');
   const [data, setData] = useState('');
 
-  const carregarEntradas = async () => {
+  const carregarEntradas = useCallback(async () => {
     try {
       setLoading(true);
       const q = query(
@@ -79,15 +82,19 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
         orderBy('created_at', 'desc'),
       );
       const snapshot = await getDocs(q);
-      setEntradas(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as EntradaProntuario)));
+      setEntradas(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as EntradaProntuario));
     } catch (err) {
       console.error('Erro ao carregar prontuário:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [pet.id]);
 
-  useFocusEffect(useCallback(() => { carregarEntradas(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      carregarEntradas();
+    }, [carregarEntradas]),
+  );
 
   const formatarDataDigitada = (value: string): string => {
     let nums = value.replace(/\D/g, '');
@@ -138,9 +145,12 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
         created_at: new Date().toISOString(),
       });
       setModalVisible(false);
-      setDescricao(''); setVeterinario(''); setData(''); setTipo('Consulta');
+      setDescricao('');
+      setVeterinario('');
+      setData('');
+      setTipo('Consulta');
       carregarEntradas();
-    } catch (err) {
+    } catch {
       Alert.alert('Erro', 'Não foi possível salvar o registro.');
     } finally {
       setSaving(false);
@@ -151,7 +161,9 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
     Alert.alert('Excluir registro', 'Tem certeza?', [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Excluir', style: 'destructive', onPress: async () => {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
           await deleteDoc(doc(firestore, 'pets', pet.id, 'prontuario', id));
           carregarEntradas();
         },
@@ -167,7 +179,10 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
           <Text style={styles.tipoText}>{item.tipo}</Text>
         </View>
         <Text style={styles.dataText}>{item.data}</Text>
-        <TouchableOpacity onPress={() => excluir(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => excluir(item.id)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons name="trash-outline" size={18} color={colors.error} />
         </TouchableOpacity>
       </View>
@@ -202,12 +217,14 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
         <View style={styles.empty}>
           <Ionicons name="clipboard-outline" size={56} color={colors.gray300} />
           <Text style={styles.emptyTitle}>Nenhum registro</Text>
-          <Text style={styles.emptySubtitle}>Toque no + para adicionar uma entrada ao prontuário.</Text>
+          <Text style={styles.emptySubtitle}>
+            Toque no + para adicionar uma entrada ao prontuário.
+          </Text>
         </View>
       ) : (
         <FlatList
           data={entradas}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -219,8 +236,16 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
       </TouchableOpacity>
 
       {/* Modal de novo registro */}
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Novo Registro</Text>
@@ -233,13 +258,15 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
               {/* Tipo */}
               <Text style={styles.label}>Tipo</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tiposRow}>
-                {TIPOS.map(t => (
+                {TIPOS.map((t) => (
                   <TouchableOpacity
                     key={t}
                     style={[styles.tipoChip, tipo === t && styles.tipoChipActive]}
                     onPress={() => setTipo(t)}
                   >
-                    <Text style={[styles.tipoChipText, tipo === t && styles.tipoChipTextActive]}>{t}</Text>
+                    <Text style={[styles.tipoChipText, tipo === t && styles.tipoChipTextActive]}>
+                      {t}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -251,7 +278,7 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
                 placeholder="DD/MM/AAAA"
                 placeholderTextColor={colors.gray400}
                 value={data}
-                onChangeText={v => setData(formatarDataDigitada(v))}
+                onChangeText={(v) => setData(formatarDataDigitada(v))}
                 keyboardType="numeric"
                 maxLength={10}
               />
@@ -280,10 +307,11 @@ export default function ProntuarioScreen({ navigation, route }: Props) {
               />
 
               <TouchableOpacity style={styles.saveBtn} onPress={salvar} disabled={saving}>
-                {saving
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.saveBtnText}>Salvar Registro</Text>
-                }
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Salvar Registro</Text>
+                )}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -328,52 +356,92 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   tipoBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: colors.tertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.tertiary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
   tipoText: { fontSize: 12, fontWeight: '600', color: colors.primary },
   dataText: { flex: 1, fontSize: 13, color: colors.gray500, textAlign: 'right', marginRight: 8 },
   descricao: { fontSize: 14, color: colors.textPrimary, lineHeight: 21 },
   vetRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
   vetText: { fontSize: 13, color: colors.gray500 },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingHorizontal: 40 },
+  empty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 40,
+  },
   emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.gray700 },
   emptySubtitle: { fontSize: 14, color: colors.gray500, textAlign: 'center' },
   fab: {
-    position: 'absolute', bottom: 28, right: 24,
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
+    position: 'absolute',
+    bottom: 28,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   // Modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   modalContainer: {
-    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, maxHeight: '90%',
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '90%',
   },
   modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   label: { fontSize: 13, fontWeight: '600', color: colors.gray600, marginBottom: 6, marginTop: 14 },
   tiposRow: { marginBottom: 4 },
   tipoChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5,
-    borderColor: colors.gray300, marginRight: 8, backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.gray300,
+    marginRight: 8,
+    backgroundColor: '#fff',
   },
   tipoChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   tipoChipText: { fontSize: 13, color: colors.gray700 },
   tipoChipTextActive: { color: '#fff', fontWeight: '600' },
   input: {
-    borderWidth: 1.5, borderColor: colors.gray300, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.textPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.gray300,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.textPrimary,
     backgroundColor: '#fff',
   },
   inputMultiline: { height: 100, paddingTop: 12 },
   saveBtn: {
-    backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', marginTop: 20, marginBottom: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 8,
   },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

@@ -45,7 +45,12 @@ export default function BirthDateField({
   return (
     <>
       <TouchableOpacity style={styles.inputContainer} onPress={() => setShow(true)}>
-        <Ionicons name="calendar-outline" size={20} color={colors.gray500} style={styles.inputIcon} />
+        <Ionicons
+          name="calendar-outline"
+          size={20}
+          color={colors.gray500}
+          style={styles.inputIcon}
+        />
         <View style={{ flex: 1 }}>
           <Text
             style={[
